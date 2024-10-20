@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PTT Login</title>
+</head>
+<body>
+    <h1>PTT Login</h1>
+    <form id="loginForm">
+        <label for="username">Brukarnamn:</label>
+        <input type="text" id="username" required>
+        <button type="submit">Login</button>
+    </form>
+
+    <div id="pttControls" style="display: none;">
+        <h2>Velkommen!</h2>
+        <button id="pttButton">Trykk for å snakke</button>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const pttControls = document.getElementById('pttControls');
+        const pttButton = document.getElementById('pttButton');
+        let username = '';
+        let socket;
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            username = document.getElementById('username').value;
+            
+            // Send POST-forespørsel for innlogging
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === 'Logged in') {
+                    form.style.display = 'none';
+                    pttControls.style.display = 'block';
+                    setupWebSocket();
+                } else {
+                    alert('Innlogging feila');
+                }
+            });
+        });
+
+        function setupWebSocket() {
+            socket = new WebSocket('ws://localhost:3000');
+            socket.onmessage = (message) => {
+                console.log('Melding frå server:', message.data);
+            };
+
+            pttButton.addEventListener('mousedown', () => {
+                socket.send(JSON.stringify({ type: 'PTT_START', username, groupId: 'group1' }));
+            });
+
+            pttButton.addEventListener('mouseup', () => {
+                socket.send(JSON.stringify({ type: 'PTT_END', username, groupId: 'group1' }));
+            });
+        }
+    </script>
+</body>
+</html>

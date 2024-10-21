@@ -18,7 +18,7 @@
 
     <div id="ptxKontrollar" style="display: none;">
         <h2>Velkomen!</h2>
-        <p>Du er no innlogga som <span id="namnSpan"></span> (fnr.: <span id="avsSpan"></span>).</p>
+        <p>Du er no innlogga som <span id="namnSpan"></span> (fnr.: <span id="fnrSpan"></span>).</p>
 
         <h3>Talegruppe</h3>
         <div id="talegruppeContainer"></div>
@@ -51,6 +51,7 @@
     </div>
 
     <script>
+
         const skjema = document.getElementById('innloggingSkjema');
         const ptxKontrollar = document.getElementById('ptxKontrollar');
         const tekstmeldingKnapp = document.getElementById('tekstmeldingKnapp');
@@ -65,11 +66,16 @@
         let talegrupper = [];
         let socket;
         let senderBool = false;
+        let localStream;
+        let peerConnection;
+        const configuration = {
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        };
 
         skjema.addEventListener('submit', (e) => {
             e.preventDefault();
             fødselsnummer = document.getElementById('fødselsnummer').value;
-            feilmelding.textContent = ''; // Clear the error message
+            feilmelding.textContent = ''; // Fjern feilmelding
             const minForseinking = 500;
             const maxForseinking = 1000;
             const forseinking = Math.floor(Math.random() * (maxForseinking - minForseinking + 1)) + minForseinking;
@@ -79,29 +85,28 @@
 
             fetch('/innlogging', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({ fødselsnummer })
             })
             .then(response => response.json())
             .then(data => {
-                const elapsedTime = Date.now() - startTime;
-                const delay = Math.max(0, forseinking - elapsedTime);
-
-                return new Promise(resolve => setTimeout(() => resolve(data), delay));
+                return new Promise(resolve => setTimeout(() => resolve(data), forseinking));
             })
             .then(data => {
                 if (data.brukar) {
-                    brukar = data.brukar; // Initiate the global variable
+                    brukar = data.brukar;
+                    talegrupper = brukar.talegrupper;
                     skjema.style.display = 'none';
                     ptxKontrollar.style.display = 'block';
                     document.getElementById('namnSpan').textContent = brukar.namn;
-                    document.getElementById('avsSpan').textContent = brukar.fødselsnummer;
-                    fødselsnummer = brukar.fødselsnummer;
-                    talegrupper = brukar.talegrupper;
+                    document.getElementById('fnrSpan').textContent = brukar.fødselsnummer;
+                    ptxKontrollar.style.display = 'block';
                     opprettWebSocket();
                     genererTalegruppeRadioKnappar(talegrupper);
                 } else {
-                    feilmelding.textContent = 'Innlogging feila, prøv på nytt';
+                    feilmelding.textContent = data.melding;
                 }
             });
         });
@@ -123,6 +128,27 @@
             });
         }
 
+        function opprettWebSocket() {
+            socket = new WebSocket('ws://localhost:3000');
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                switch (data.type) {
+                    case 'PTT_START':
+                        handterPTTStart(data);
+                        break;
+                    case 'PTT_END':
+                        handterPTTSlutt(data);
+                        break;
+                    default:
+                        console.log('Ukjent meldingstype mottatt:', data.type);
+                        break;
+                }
+            };
+        }
+
+
         function deaktiverRadioKnappar() {
             const radioButtons = document.querySelectorAll('input[type="radio"]');
             radioButtons.forEach(button => button.disabled = true);
@@ -133,117 +159,88 @@
             radioButtons.forEach(button => button.disabled = false);
         }
 
-        function deaktiverPttKnapp() {
-            pttKnapp.disabled = true;
+        async function sendTekstmelding() {
+            const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
+            const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
+            const tekstmelding = document.querySelector('input[name="tekstmelding"]:checked').value;
+            socket.send(JSON.stringify({
+                type: 'TEKSTMELDING_TIL_TALEGRUPPE',
+                avsendarBrukar: brukar,
+                avsendarTalegruppe: talegruppe,
+                tekstmelding
+            }));
         }
 
-        function aktiverTekstmeldingKnapp() {
-            tekstmeldingKnapp.disabled = false;
+        async function startPTT() {
+            senderBool = true;
+            deaktiverRadioKnappar();
+            const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
+            const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
+
+            socket.send(JSON.stringify({
+                type: 'PTT_START',
+                avsendarBrukar: brukar,
+                avsendarTalegruppe: talegruppe,
+                offer: offer
+            }));
         }
 
-        function opprettWebSocket() {
-            const sokkel = new WebSocket('ws://localhost:3000');
-        
-            // Motta
-            sokkel.onmessage = (melding) => {
-                const data = JSON.parse(melding.data);
-                const avsendarTalegruppe = data.avsendarTalegruppe;
-                const avsendarBrukar = data.avsendarBrukar;
-                
-                switch (data.type) {
-                    case 'PTT_START':
-                        if (avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
-                            deaktiverRadioKnappar();
-                            if (!senderBool) {
-                                deaktiverPttKnapp();
-                            }
-                            statusDiv.textContent = senderBool 
-                            ? 'Status: Du sender' 
-                            : 'Status: Opptatt';
-                            avsendarDiv.textContent = 'Avsendar: ' +  avsendarBrukar.fødselsnummer;
-                            talegruppenamnDiv.textContent = 'Talegruppe: ' + avsendarTalegruppe.namn;
-                        }
-                        break;
+        async function stoppPTT() {
+            senderBool = false;
+            aktiverRadioKnappar();
+            const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
+            const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
 
-                    case 'PTT_END':
-                        aktiverRadioKnappar();
-                        if (!senderBool) {
-                            aktiverTekstmeldingKnapp();
-                        }
-                        statusDiv.textContent = 'Status: Ledig';
-                        avsendarDiv.textContent = 'Avsendar: Ingen';
-                        talegruppenamnDiv.textContent = 'Talegruppe: Ingen';
-                        break;
+            socket.send(JSON.stringify({
+                type: 'PTT_END',
+                avsendarBrukar: brukar,
+                avsendarTalegruppe: talegruppe
+            }));
+        }
 
-                    case 'TEKSTMELDING_TIL_TALEGRUPPE':
-                        if (data.avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
-                            console.log(brukar)
-                            console.log(data.avsendarBrukar)
-                            const melding = brukar == data.avsendarBrukar 
-                                ? `Du sende følgjande tekstmelding i talegruppe ${avsendarTalegruppe.namn}:\n${data.tekstmelding}`
-                                : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
-                            alert(melding);
-                        }
-                        break;
+        function handterPTTStart(data) {
+            const avsendarTalegruppe = data.avsendarTalegruppe;
+            const avsendarBrukar = data.avsendarBrukar;
 
-                    default:
-                        console.log('Ukjent meldingstype mottatt:', data.type);
-                        break;
-                }
-            }
-
-            // Sende tekstmelding
-            tekstmeldingKnapp.addEventListener('click', () => {
-                const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
-                const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
-                const tekstmelding = document.querySelector('input[name="tekstmelding"]:checked').value;
-                sokkel.send(JSON.stringify({ 
-                    type: 'TEKSTMELDING_TIL_TALEGRUPPE', 
-                    avsendarBrukar : brukar, 
-                    avsendarTalegruppe : talegruppe, 
-                    tekstmelding 
-                }));
-            });
-
-            // funksjon, starte PTT
-            function startPTT() {
-                senderBool = true;
+            if (avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
                 deaktiverRadioKnappar();
-                const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
-                const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
-                sokkel.send(JSON.stringify({ 
-                    type: 'PTT_START', 
-                    avsendarBrukar : brukar, 
-                    avsendarTalegruppe : talegruppe
-                }));
+                if (!senderBool) {
+                    pttKnapp.disabled = true;
+                }
+                statusDiv.textContent = senderBool 
+                    ? 'Status: Du sender' 
+                    : 'Status: Opptatt';
+                avsendarDiv.textContent = 'Avsendar: ' +  avsendarBrukar.fødselsnummer;
+                talegruppenamnDiv.textContent = 'Talegruppe: ' + avsendarTalegruppe.namn;
             }
-
-            // funksjon, stoppe PTT
-            function stopPTT() {
-                senderBool = false;
-                aktiverRadioKnappar();
-                const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
-                const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
-                sokkel.send(JSON.stringify({ 
-                    type: 'PTT_END', 
-                    avsendarBrukar : brukar, 
-                    avsendarTalegruppe : talegruppe
-                }));
-            }
-
-            // Start PTT on mouse down or touch start
-            pttKnapp.addEventListener('mousedown', startPTT);
-            pttKnapp.addEventListener('touchstart', startPTT);
-
-            // Stop PTT on mouse up or touch end
-            pttKnapp.addEventListener('mouseup', stopPTT);
-            pttKnapp.addEventListener('touchend', stopPTT);
         }
 
-        function startLydKommunikasjon() {
-            console.log('Start lydkommunikasjon');
-            // Implement WebRTC logic here
+        function handterPTTSlutt(data) {
+            aktiverRadioKnappar();
+            if (!senderBool) {
+                pttKnapp.disabled = false;
+            }
+            statusDiv.textContent = 'Status: Ledig';
+            avsendarDiv.textContent = 'Avsendar: Ingen';
+            talegruppenamnDiv.textContent = 'Talegruppe: Ingen';
         }
+
+        function handterTekstmelding(data) {
+            if (data.avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
+                const melding = brukar.fødselsnummer == data.avsendarBrukar.fødselsnummer 
+                    ? `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`
+                    : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+                alert(melding);
+            }
+        }
+
+        tekstmeldingKnapp.addEventListener('click', sendTekstmelding);
+
+        pttKnapp.addEventListener('mousedown', startPTT);
+        pttKnapp.addEventListener('touchstart', startPTT);
+
+        pttKnapp.addEventListener('mouseup', stoppPTT);
+        pttKnapp.addEventListener('touchend', stoppPTT);
     </script>
 </body>
 </html>

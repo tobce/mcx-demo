@@ -14,6 +14,11 @@ const ws = new WebSocket.Server({ server });
 
 app.use(bodyParser.json());
 
+// Konstantar
+const PORT = 3000;
+const RATE_MINUTT = 15; //rate limit i minutt
+const RATE_FØRESPURNADER = 100; //maks førespurnader per IP per tid minutt
+
 // Dummy-database for brukarar og talegrupper
 
 let talegrupper = [
@@ -45,17 +50,17 @@ for (let brukar of brukarar) {
 
 // Innlogging (utan passord for no)
 app.post('/innlogging', (req, res) => {
-    const { fødselsnummer: fødselsnummer } = req.body;
+    const { fødselsnummer } = req.body;
 
     if (!validator.isNumeric(fødselsnummer)) {
         return res.status(400).json({ melding: 'Ugyldig fødselsnummer' });
     }    
-    const brukar = brukarar.find(u => u.id === fødselsnummer);
+    const brukar = brukarar.find(u => u.fødselsnummer === fødselsnummer);
     if (brukar) {
-        console.log('Autentisert brukar:', brukar.fødselsnummer);
+        console.log('Autentisert brukar:', brukar.hentNamn());
         return res.status(200).json({ brukar });
     }
-    return res.status(401).json({ melding: 'Uautorisert' });
+    return res.status(401).json({ melding: 'Ikkje autorisert' });
 });
 
 ws.on('connection', (socket) => {
@@ -74,6 +79,7 @@ ws.on('connection', (socket) => {
                             type: data.type,
                             avsendarBrukar: data.avsendarBrukar,
                             avsendarTalegruppe: data.avsendarTalegruppe,
+                            offer: data.offer
                         }));
                     }
                 });
@@ -94,7 +100,6 @@ ws.on('connection', (socket) => {
                     }
                 });
                 break;
-
             default:
                 console.log('Ukjent meldingstype mottatt:', data.type);
                 break;
@@ -107,17 +112,16 @@ app.use(express.static('public'));
 
 const rateLimit = require('express-rate-limit');
 
-// Rate limit middleware
+// Avgrense førespurnader til serveren
 const avgrensing = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutt
-    max: 100 // Maks 100 førespurnader per IP per 15 minutt
+    windowMs: RATE_MINUTT * 60 * 1000,
+    max: RATE_FØRESPURNADER
 });
 
 app.use(avgrensing);
 
-// Start server
-const port = 3000;
+// Start serveren
 
-server.listen(port, () => {
-    console.log(`Serveren køyrer på http://localhost:${port}`);
+server.listen(PORT, () => {
+    console.log(`Serveren køyrer på http://localhost:${PORT}`);
 });

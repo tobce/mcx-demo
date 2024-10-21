@@ -13,13 +13,13 @@ app.use(bodyParser.json());
 
 // Dummy-database for brukarar og grupper
 let brukarar = [
-    { id: 0, brukarnamn: 'brukar1', grupper: [1, 2] },
-    { id: 1, brukarnamn: 'brukar2', grupper: [1] }
+    { id: 75, brukarnamn: 'brukar1', grupper: [10, 12] },
+    { id: 14, brukarnamn: 'brukar2', grupper: [12] }
 ];
 
 let grupper = [
-    { id: 0, gruppenamn: 'gruppe1'},
-    { id: 1, gruppenamn: 'gruppe2'}
+    { id: 10, gruppenamn: 'Talegruppe 1'},
+    { id: 12, gruppenamn: 'Talegruppe 2'}
 ];
 
 // Innlogging (utan passord for no)
@@ -33,8 +33,9 @@ app.post('/innlogging', (req, res) => {
     }    
     const brukar = brukarar.find(u => u.brukarnamn === brukarnamn);
     if (brukar) {
+        const brukarGrupper = grupper.filter(gr => brukar.grupper.includes(gr.id));
         console.log('Autentisert brukar:', brukarnamn);
-        return res.status(200).json({ melding: 'Logga inn', brukarnamn, grupper: brukar.grupper });
+        return res.status(200).json({ melding: 'Logga inn', brukarnamn, grupper: brukarGrupper });
     }
     return res.status(401).json({ melding: 'Uautorisert' });
 });

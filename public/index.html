@@ -20,12 +20,7 @@
         <p>Du er no innlogga som <span id="brukarnamnSpan"></span>.</p>
 
         <h3>Talegruppe</h3>
-        <div>
-            <label for="gruppe1"><input type="radio" id="gruppe1" name="gruppe" value="0" checked>
-            Gruppe 1</label>
-            <label for="gruppe2"><input type="radio" id="gruppe2" name="gruppe" value="1">
-            Gruppe 2</label>
-        </div>
+        <div id="gruppeContainer"></div>
         
         <h3>Melding</h3>
         <div>
@@ -58,6 +53,7 @@
         const gruppenamnDiv = document.getElementById('gruppenamn');
         const pttMeldingDiv = document.getElementById('pttMelding');
         const sendarBrukarnamnDiv = document.getElementById('sendarBrukarnamn');
+        const gruppeContainer = document.getElementById('gruppeContainer');
         let brukarnamn = '';
         let socket;
         let senderBool = false;
@@ -72,40 +68,59 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ brukarnamn })
             })
-            .then(response => {
-            if (response.ok) {
-                skjema.style.display = 'none';
-                pttKontrollar.style.display = 'block';
-                document.getElementById('brukarnamnSpan').textContent = brukarnamn;
-                opprettWebSocket();
-            } else {
-                alert('Innlogging feila');
-            }
+            .then(response => response.json())
+            .then(data => {
+                if (data.melding === 'Logga inn') {
+                    skjema.style.display = 'none';
+                    pttKontrollar.style.display = 'block';
+                    document.getElementById('brukarnamnSpan').textContent = brukarnamn;
+                    opprettWebSocket();
+                    genererGruppeRadioKnappar(data.grupper);
+                } else {
+                    alert('Innlogging feila');
+                }
             });
         });
+
+        function genererGruppeRadioKnappar(grupper) {
+            gruppeContainer.innerHTML = '';
+            grupper.forEach((gruppe, index) => {
+                const label = document.createElement('label');
+                label.setAttribute('for', `gruppe${gruppe.id}`);
+                const input = document.createElement('input');
+                input.type = 'radio';
+                input.id = `gruppe${gruppe.id}`;
+                input.name = 'gruppe';
+                input.value = gruppe.id;
+                if (index === 0) input.checked = true;
+                label.appendChild(input);
+                label.appendChild(document.createTextNode(` ${gruppe.gruppenamn}`));
+                gruppeContainer.appendChild(label);
+            });
+        }
 
         function opprettWebSocket() {
             const sokkel = new WebSocket('ws://localhost:3000');
 
             function deaktiverRadioKnappar() {
-            const radioButtons = document.querySelectorAll('input[type="radio"]');
-            radioButtons.forEach(button => button.disabled = true);
-        }
+                const radioButtons = document.querySelectorAll('input[type="radio"]');
+                radioButtons.forEach(button => button.disabled = true);
+            }
 
-        function aktiverRadioKnappar() {
-            const radioButtons = document.querySelectorAll('input[type="radio"]');
-            radioButtons.forEach(button => button.disabled = false);
-        }
+            function aktiverRadioKnappar() {
+                const radioButtons = document.querySelectorAll('input[type="radio"]');
+                radioButtons.forEach(button => button.disabled = false);
+            }
 
-        function deaktiverPttKnapp() {
-            const pttKnapp = document.getElementById('pttKnapp');
-            pttKnapp.disabled = true;
-        }
+            function deaktiverPttKnapp() {
+                const pttKnapp = document.getElementById('pttKnapp');
+                pttKnapp.disabled = true;
+            }
 
-        function aktiverPttKnapp() {
-            const pttKnapp = document.getElementById('pttKnapp');
-            pttKnapp.disabled = false;
-        }
+            function aktiverPttKnapp() {
+                const pttKnapp = document.getElementById('pttKnapp');
+                pttKnapp.disabled = false;
+            }
         
             // Motta
             sokkel.onmessage = (melding) => {

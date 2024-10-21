@@ -10,18 +10,18 @@
     <h1>PTX-demo</h1>
     <form id="innloggingSkjema">
         <h2>Innlogging</h2>
-        <label for="brukarnamn">Brukarnamn:</label>
-        <input type="text" id="brukarnamn" required>
+        <label for="fødselsnummer">Fødselsnummer:</label>
+        <input type="text" id="fødselsnummer" required>
         <button type="submit">Logg inn</button>
         <p id="feilmeldingP" class="error-message"></p>
     </form>
 
-    <div id="tekstmeldingKontrollar" style="display: none;">
+    <div id="ptxKontrollar" style="display: none;">
         <h2>Velkomen!</h2>
-        <p>Du er no innlogga som <span id="brukarnamnSpan"></span> (ID: <span id="brukarIdSpan"></span>).</p>
+        <p>Du er no innlogga som <span id="namnSpan"></span> (fnr.: <span id="avsSpan"></span>).</p>
 
         <h3>Talegruppe</h3>
-        <div id="gruppeContainer"></div>
+        <div id="talegruppeContainer"></div>
         
         <h3>Melding</h3>
         <div>
@@ -45,31 +45,30 @@
         <h3>Status</h3>
         <div id="status">
             <div id="statusmelding">Status: Ledig</div>
-            <div id="gruppenamn">Gruppe: Ingen</div>
-            <div id="sendarBrukarnamn">Brukarnamn: Ingen</div>
-            <div id="id">ID: Ingen</div>
+            <div id="talegruppenamn">Talegruppe: Ingen</div>
+            <div id="avsendar">Avsendar: Ingen</div>
         </div>
     </div>
 
     <script>
         const skjema = document.getElementById('innloggingSkjema');
-        const tekstmeldingKontrollar = document.getElementById('tekstmeldingKontrollar');
+        const ptxKontrollar = document.getElementById('ptxKontrollar');
         const tekstmeldingKnapp = document.getElementById('tekstmeldingKnapp');
         const pttKnapp = document.getElementById('pttKnapp');
         const statusDiv = document.getElementById('statusmelding');
-        const gruppenamnDiv = document.getElementById('gruppenamn');
-        const idDiv = document.getElementById('id');
-        const sendarBrukarnamnDiv = document.getElementById('sendarBrukarnamn');
-        const gruppeContainer = document.getElementById('gruppeContainer');
+        const talegruppenamnDiv = document.getElementById('talegruppenamn');
+        const avsendarDiv = document.getElementById('avsendar');
+        const talegruppeContainer = document.getElementById('talegruppeContainer');
         const feilmelding = document.getElementById('feilmeldingP');
-        let brukarnamn = '';
-        let brukarId = '';
+        let brukar;
+        let fødselsnummer = '';
+        let talegrupper = [];
         let socket;
         let senderBool = false;
 
         skjema.addEventListener('submit', (e) => {
             e.preventDefault();
-            brukarnamn = document.getElementById('brukarnamn').value;
+            fødselsnummer = document.getElementById('fødselsnummer').value;
             feilmelding.textContent = ''; // Clear the error message
             const minForseinking = 500;
             const maxForseinking = 1000;
@@ -81,7 +80,7 @@
             fetch('/innlogging', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ brukarnamn })
+                body: JSON.stringify({ fødselsnummer })
             })
             .then(response => response.json())
             .then(data => {
@@ -91,55 +90,56 @@
                 return new Promise(resolve => setTimeout(() => resolve(data), delay));
             })
             .then(data => {
-                if (data.brukarnamn) {
+                if (data.brukar) {
+                    brukar = data.brukar; // Initiate the global variable
                     skjema.style.display = 'none';
-                    tekstmeldingKontrollar.style.display = 'block';
-                    document.getElementById('brukarnamnSpan').textContent = brukarnamn;
-                    document.getElementById('brukarIdSpan').textContent = data.id;
+                    ptxKontrollar.style.display = 'block';
+                    document.getElementById('namnSpan').textContent = brukar.namn;
+                    document.getElementById('avsSpan').textContent = brukar.fødselsnummer;
+                    fødselsnummer = brukar.fødselsnummer;
+                    talegrupper = brukar.talegrupper;
                     opprettWebSocket();
-                    genererGruppeRadioKnappar(data.grupper);
+                    genererTalegruppeRadioKnappar(talegrupper);
                 } else {
                     feilmelding.textContent = 'Innlogging feila, prøv på nytt';
                 }
             });
         });
 
-        function genererGruppeRadioKnappar(grupper) {
-            gruppeContainer.innerHTML = '';
-            grupper.forEach((gruppe, index) => {
+        function genererTalegruppeRadioKnappar(talegrupper) {
+            talegruppeContainer.innerHTML = '';
+            talegrupper.forEach((talegruppe, index) => {
                 const label = document.createElement('label');
-                label.setAttribute('for', `gruppe${gruppe.id}`);
+                label.setAttribute('for', talegruppe.id);
                 const input = document.createElement('input');
                 input.type = 'radio';
-                input.id = `gruppe${gruppe.id}`;
-                input.name = 'gruppe';
-                input.value = gruppe.id;
+                input.id = talegruppe.id;
+                input.name = 'talegruppe';
+                input.value = talegruppe.id;
                 if (index === 0) input.checked = true;
                 label.appendChild(input);
-                label.appendChild(document.createTextNode(` ${gruppe.gruppenamn}`));
-                gruppeContainer.appendChild(label);
+                label.appendChild(document.createTextNode(` ${talegruppe.namn}`));
+                talegruppeContainer.appendChild(label);
             });
         }
 
         function deaktiverRadioKnappar() {
-                const radioButtons = document.querySelectorAll('input[type="radio"]');
-                radioButtons.forEach(button => button.disabled = true);
-            }
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
+            radioButtons.forEach(button => button.disabled = true);
+        }
 
-            function aktiverRadioKnappar() {
-                const radioButtons = document.querySelectorAll('input[type="radio"]');
-                radioButtons.forEach(button => button.disabled = false);
-            }
+        function aktiverRadioKnappar() {
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
+            radioButtons.forEach(button => button.disabled = false);
+        }
 
-            function deaktiverPttKnapp() {
-                const pttKnapp = document.getElementById('pttKnapp');
-                pttKnapp.disabled = true;
-            }
+        function deaktiverPttKnapp() {
+            pttKnapp.disabled = true;
+        }
 
-            function aktiverTekstmeldingKnapp() {
-                const tekstmeldingKnapp = document.getElementById('tekstmeldingKnapp');
-                pttKnapp.disabled = false;
-            }
+        function aktiverTekstmeldingKnapp() {
+            tekstmeldingKnapp.disabled = false;
+        }
 
         function opprettWebSocket() {
             const sokkel = new WebSocket('ws://localhost:3000');
@@ -147,83 +147,97 @@
             // Motta
             sokkel.onmessage = (melding) => {
                 const data = JSON.parse(melding.data);
-                console.log(data);
-
-                grupper = data.grupper;
-                const gruppeId = data.gruppeId;
-                const gruppe = grupper.find(gr => gr.id == gruppeId);
-                const gruppenamn = gruppe ? gruppe.gruppenamn : 'Ingen';
+                const avsendarTalegruppe = data.avsendarTalegruppe;
+                const avsendarBrukar = data.avsendarBrukar;
                 
-                if (data.type === 'PTT_START' && gruppeId == document.querySelector('input[name="gruppe"]:checked').value) {
-                    deaktiverRadioKnappar();
-                    if (!senderBool) {
-                        deaktiverPttKnapp();
-                    }
-                    if (senderBool) {statusDiv.textContent = 'Status: Du sender';}
-                    else {statusDiv.textContent = 'Status: Opptatt';}
-                    
-                    idDiv.textContent = 'ID: ' + data.id;
-                    sendarBrukarnamnDiv.textContent = 'Brukarnamn: ' + data.brukarnamn;
-                    gruppenamnDiv.textContent = 'Gruppe: ' + gruppenamn;
-                } else if (data.type === 'PTT_END') {
-                    aktiverRadioKnappar();
-                    if (!senderBool) {
-                        aktiverTekstmeldingKnapp();
-                    }
-                    statusDiv.textContent = 'Status: Ledig';
-                    sendarBrukarnamnDiv.textContent = 'Brukarnamn: Ingen';
-                    gruppenamnDiv.textContent = 'Gruppe: Ingen';
-                } else if (data.type === 'TEKSTMELDING_TIL_GRUPPE' && gruppeId == document.querySelector('input[name="gruppe"]:checked').value) {
-                    idDiv.textContent = 'ID: ' + data.id;
-                    sendarBrukarnamnDiv.textContent = 'Brukarnamn: ' + data.brukarnamn;
-                    if (brukarnamn == data.brukarnamn) {
-                        alert('Du sende følgjande tekstmelding i gruppe ' + gruppenamn +":\n" + data.tekstmelding);
-                    }
-                    else {
-                        alert('Ny melding mottatt frå ' + data.brukarnamn + ' i gruppe ' + gruppenamn +":\n" + data.tekstmelding);
+                switch (data.type) {
+                    case 'PTT_START':
+                        if (avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
+                            deaktiverRadioKnappar();
+                            if (!senderBool) {
+                                deaktiverPttKnapp();
+                            }
+                            statusDiv.textContent = senderBool 
+                            ? 'Status: Du sender' 
+                            : 'Status: Opptatt';
+                            avsendarDiv.textContent = 'Avsendar: ' +  avsendarBrukar.fødselsnummer;
+                            talegruppenamnDiv.textContent = 'Talegruppe: ' + avsendarTalegruppe.namn;
+                        }
+                        break;
 
-                    }
+                    case 'PTT_END':
+                        aktiverRadioKnappar();
+                        if (!senderBool) {
+                            aktiverTekstmeldingKnapp();
+                        }
+                        statusDiv.textContent = 'Status: Ledig';
+                        avsendarDiv.textContent = 'Avsendar: Ingen';
+                        talegruppenamnDiv.textContent = 'Talegruppe: Ingen';
+                        break;
+
+                    case 'TEKSTMELDING_TIL_TALEGRUPPE':
+                        if (data.avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
+                            console.log(brukar)
+                            console.log(data.avsendarBrukar)
+                            const melding = brukar == data.avsendarBrukar 
+                                ? `Du sende følgjande tekstmelding i talegruppe ${avsendarTalegruppe.namn}:\n${data.tekstmelding}`
+                                : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+                            alert(melding);
+                        }
+                        break;
+
+                    default:
+                        console.log('Ukjent meldingstype mottatt:', data.type);
+                        break;
                 }
-            };
+            }
 
             // Sende tekstmelding
             tekstmeldingKnapp.addEventListener('click', () => {
-                const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
+                const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
+                const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
                 const tekstmelding = document.querySelector('input[name="tekstmelding"]:checked').value;
                 sokkel.send(JSON.stringify({ 
-                    type: 'TEKSTMELDING_TIL_GRUPPE', 
-                    brukarnamn, 
-                    gruppeId, 
+                    type: 'TEKSTMELDING_TIL_TALEGRUPPE', 
+                    avsendarBrukar : brukar, 
+                    avsendarTalegruppe : talegruppe, 
                     tekstmelding 
                 }));
             });
 
-            // Start ptt
-            pttKnapp.addEventListener('mousedown', () => {
+            // funksjon, starte PTT
+            function startPTT() {
                 senderBool = true;
                 deaktiverRadioKnappar();
-                const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
-                const tekstmelding = document.querySelector('input[name="tekstmelding"]:checked').value;
+                const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
+                const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
                 sokkel.send(JSON.stringify({ 
                     type: 'PTT_START', 
-                    brukarnamn, 
-                    gruppeId, 
-                    tekstmelding 
+                    avsendarBrukar : brukar, 
+                    avsendarTalegruppe : talegruppe
                 }));
-            });
+            }
 
-            // Stopp ptt
-            pttKnapp.addEventListener('mouseup', () => {
+            // funksjon, stoppe PTT
+            function stopPTT() {
                 senderBool = false;
                 aktiverRadioKnappar();
-                const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
+                const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
+                const talegruppe = talegrupper.find(gr => gr.id == talegruppeId);
                 sokkel.send(JSON.stringify({ 
                     type: 'PTT_END', 
-                    brukarnamn, 
-                    gruppeId
+                    avsendarBrukar : brukar, 
+                    avsendarTalegruppe : talegruppe
                 }));
-            });
+            }
 
+            // Start PTT on mouse down or touch start
+            pttKnapp.addEventListener('mousedown', startPTT);
+            pttKnapp.addEventListener('touchstart', startPTT);
+
+            // Stop PTT on mouse up or touch end
+            pttKnapp.addEventListener('mouseup', stopPTT);
+            pttKnapp.addEventListener('touchend', stopPTT);
         }
 
         function startLydKommunikasjon() {

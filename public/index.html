@@ -15,7 +15,7 @@
         <button type="submit">Logg inn</button>
     </form>
 
-    <div id="pttKontrollar" style="display: none;">
+    <div id="tekstmeldingKontrollar" style="display: none;">
         <h2>Velkomen!</h2>
         <p>Du er no innlogga som <span id="brukarnamnSpan"></span>.</p>
 
@@ -24,34 +24,38 @@
         
         <h3>Melding</h3>
         <div>
-            <label for="ja"><input type="radio" id="ja" name="ptt-melding" value="Ja" checked>
+            <label for="ja"><input type="radio" id="ja" name="tekstmelding" value="Ja" checked>
             Ja</label>
-            <label for="nei"><input type="radio" id="nei" name="ptt-melding" value="Nei">
+            <label for="nei"><input type="radio" id="nei" name="tekstmelding" value="Nei">
             Nei</label>
-            <label for="kanskje"><input type="radio" id="kanskje" name="ptt-melding" value="Kanskje">
+            <label for="kanskje"><input type="radio" id="kanskje" name="tekstmelding" value="Kanskje">
             Kanskje</label>
-            <label for="tekstfeltRadio"><input type="radio" id="tekstfeltRadio" name="ptt-melding" value="">
+            <label for="tekstfeltRadio"><input type="radio" id="tekstfeltRadio" name="tekstmelding" value="">
             Eigen tekst:</label>
-            <input type="text" id="tekstfelt" name="ptt-melding" oninput="document.getElementById('tekstfeltRadio').value = this.value; document.getElementById('tekstfeltRadio').checked = true;">
+            <input type="text" id="tekstfelt" name="tekstmelding" oninput="document.getElementById('tekstfeltRadio').value = this.value; document.getElementById('tekstfeltRadio').checked = true;">
         </div>
 
-        <h3>PTT</h3>
-        <button id="pttKnapp">Trykk for å snakke</button>
+        <h3>Tekstmelding</h3>
+        <button id="tekstmeldingKnapp">Send tekstmelding</button>
+
+        <h3>PTT (lyd)</h3>
+        <button id="pttKnapp">PTT</button>
 
         <h3>Status</h3>
         <div id="status">Status: Ledig</div>
         <div id="gruppenamn">Gruppe: Ingen</div>
         <div id="sendarBrukarnamn">Brukarnamn: Ingen</div>
-        <div id="pttMelding">Melding: Ingen</div>
+        <div id="tekstmelding">Melding: Ingen</div>
     </div>
 
     <script>
         const skjema = document.getElementById('innloggingSkjema');
-        const pttKontrollar = document.getElementById('pttKontrollar');
+        const tekstmeldingKontrollar = document.getElementById('tekstmeldingKontrollar');
+        const tekstmeldingKnapp = document.getElementById('tekstmeldingKnapp');
         const pttKnapp = document.getElementById('pttKnapp');
         const statusDiv = document.getElementById('status');
         const gruppenamnDiv = document.getElementById('gruppenamn');
-        const pttMeldingDiv = document.getElementById('pttMelding');
+        const tekstmeldingDiv = document.getElementById('tekstmelding');
         const sendarBrukarnamnDiv = document.getElementById('sendarBrukarnamn');
         const gruppeContainer = document.getElementById('gruppeContainer');
         let brukarnamn = '';
@@ -72,7 +76,7 @@
             .then(data => {
                 if (data.melding === 'Logga inn') {
                     skjema.style.display = 'none';
-                    pttKontrollar.style.display = 'block';
+                    tekstmeldingKontrollar.style.display = 'block';
                     document.getElementById('brukarnamnSpan').textContent = brukarnamn;
                     opprettWebSocket();
                     genererGruppeRadioKnappar(data.grupper);
@@ -117,8 +121,8 @@
                 pttKnapp.disabled = true;
             }
 
-            function aktiverPttKnapp() {
-                const pttKnapp = document.getElementById('pttKnapp');
+            function aktiverTekstmeldingKnapp() {
+                const tekstmeldingKnapp = document.getElementById('tekstmeldingKnapp');
                 pttKnapp.disabled = false;
             }
         
@@ -144,35 +148,57 @@
                         statusDiv.textContent = 'Status: Opptatt';
                     }
                     
-                    pttMeldingDiv.textContent = 'Melding: ' + data.pttMelding;
+                    tekstmeldingDiv.textContent = 'Melding: ' + data.tekstmelding;
                     sendarBrukarnamnDiv.textContent = 'Brukarnamn: ' + data.brukarnamn;
                     gruppenamnDiv.textContent = 'Gruppe: ' + gruppenamn;
                 } else if (data.type === 'PTT_END') {
                     aktiverRadioKnappar();
                     if (!senderBool) {
-                        aktiverPttKnapp();
+                        aktiverTekstmeldingKnapp();
                     }
                     statusDiv.textContent = 'Status: Ledig';
-                    pttMeldingDiv.textContent = 'Melding: Ingen';
                     sendarBrukarnamnDiv.textContent = 'Brukarnamn: Ingen';
                     gruppenamnDiv.textContent = 'Gruppe: Ingen';
+                } else if (data.type === 'TEKSTMELDING_TIL_GRUPPE' && gruppeId == document.querySelector('input[name="gruppe"]:checked').value) {
+                    tekstmeldingDiv.textContent = 'Melding: ' + data.tekstmelding;
+                    sendarBrukarnamnDiv.textContent = 'Brukarnamn: ' + data.brukarnamn;
+                    if (brukarnamn == data.brukarnamn) {
+                        alert('Du sende følgjande tekstmelding i gruppe ' + gruppenamn +":\n" + data.tekstmelding);
+                    }
+                    else {
+                        alert('Ny melding mottatt frå ' + data.brukarnamn + ' i gruppe ' + gruppenamn +":\n" + data.tekstmelding);
+
+                    }
                 }
             };
 
-            // Sende
+            // Sende tekstmelding
+            tekstmeldingKnapp.addEventListener('click', () => {
+                const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
+                const tekstmelding = document.querySelector('input[name="tekstmelding"]:checked').value;
+                sokkel.send(JSON.stringify({ 
+                    type: 'TEKSTMELDING_TIL_GRUPPE', 
+                    brukarnamn, 
+                    gruppeId, 
+                    tekstmelding 
+                }));
+            });
+
+            // Start ptt
             pttKnapp.addEventListener('mousedown', () => {
                 senderBool = true;
                 deaktiverRadioKnappar();
                 const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
-                const pttMelding = document.querySelector('input[name="ptt-melding"]:checked').value;
+                const tekstmelding = document.querySelector('input[name="tekstmelding"]:checked').value;
                 sokkel.send(JSON.stringify({ 
                     type: 'PTT_START', 
                     brukarnamn, 
                     gruppeId, 
-                    pttMelding 
+                    tekstmelding 
                 }));
             });
 
+            // Stopp ptt
             pttKnapp.addEventListener('mouseup', () => {
                 senderBool = false;
                 aktiverRadioKnappar();
@@ -183,6 +209,12 @@
                     gruppeId
                 }));
             });
+
+        }
+
+        function startLydKommunikasjon() {
+            console.log('Start lydkommunikasjon');
+            // Implement WebRTC logic here
         }
     </script>
 </body>

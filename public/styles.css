@@ -11,7 +11,7 @@ h1, h2, h3 {
     text-align: center;
 }
 
-form, #pttKontrollar {
+form, #tekstmeldingKontrollar {
     max-width: 600px;
     margin: 20px auto;
     padding: 20px;
@@ -51,7 +51,7 @@ input[type="radio"] {
     margin-right: 10px;
 }
 
-#status, #gruppenamn, #sendarBrukarnamn, #pttMelding {
+#status, #gruppenamn, #sendarBrukarnamn, #tekstmelding {
     margin-top: 10px;
     padding: 10px;
     background-color: #e9ecef;
@@ -79,4 +79,22 @@ input[type="radio"] {
 #pttKnapp:disabled {
     background-color: #6c757d;
     cursor: not-allowed;
+}
+
+#tekstmeldingKnapp {
+    background-color: #17a2b8;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+#tekstmeldingKnapp:hover {
+    background-color: #138496;
+}
+
+#tekstmeldingKnapp:active {
+    background-color: #0c5460;
 }

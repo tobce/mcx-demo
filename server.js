@@ -4,7 +4,6 @@ const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 const validator = require('validator');
 
-
 const app = express();
 const server = http.createServer(app);
 const ws = new WebSocket.Server({ server });
@@ -23,8 +22,6 @@ let grupper = [
 ];
 
 // Innlogging (utan passord for no)
-
-
 app.post('/innlogging', (req, res) => {
     const { brukarnamn } = req.body;
 
@@ -35,7 +32,7 @@ app.post('/innlogging', (req, res) => {
     if (brukar) {
         const brukarGrupper = grupper.filter(gr => brukar.grupper.includes(gr.id));
         console.log('Autentisert brukar:', brukarnamn);
-        return res.status(200).json({ melding: 'Logga inn', brukarnamn, grupper: brukarGrupper });
+        return res.status(200).json({ brukarnamn, grupper: brukarGrupper });
     }
     return res.status(401).json({ melding: 'Uautorisert' });
 });
@@ -51,9 +48,9 @@ ws.on('connection', (socket) => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify({
                     brukarnamn: data.brukarnamn,
-                    type: data.type, // PPT_IN eller PPT_OUT
+                    type: data.type, 
                     gruppeId: data.gruppeId,
-                    pttMelding: data.pttMelding,
+                    tekstmelding: data.tekstmelding,
                     grupper,
                 }));
             }
@@ -73,7 +70,6 @@ const avgrensing = rateLimit({
 });
 
 app.use(avgrensing);
-
 
 // Start server
 const port = 3000;

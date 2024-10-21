@@ -3,7 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 const validator = require('validator');
-const wrtc = require('@roamhq/wrtc');
+// const wrtc = require('@roamhq/wrtc');
 
 // Eigne klasser
 const Brukar = require('./models/Brukar');
@@ -60,6 +60,7 @@ ws.on('connection', (socket) => {
         switch (data.type) {
             case 'PTT_START':
                 // Initialize WebRTC connection
+                /*
                 peerConnection = new wrtc.RTCPeerConnection();
                 peerConnection.onicecandidate = ({ candidate }) => {
                     if (candidate) {
@@ -74,8 +75,8 @@ ws.on('connection', (socket) => {
                 await peerConnection.setLocalDescription(offer);
 
                 socket.send(JSON.stringify({ type: 'offer', offer }));
+                */
 
-                // Broadcast PTT_START to all clients in the same group
                 ws.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({
@@ -89,12 +90,14 @@ ws.on('connection', (socket) => {
 
             case 'PTT_END':
                 // Close WebRTC connection
+                /*
                 if (peerConnection) {
                     peerConnection.close();
                     peerConnection = null;
                 }
+                    */
 
-                // Broadcast PTT_END to all clients in the same group
+                // Kringkast PPT_end til alle
                 ws.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({
@@ -105,7 +108,7 @@ ws.on('connection', (socket) => {
                     }
                 });
                 break;
-
+            /*
             case 'offer':
                 if (peerConnection) {
                     if (peerConnection.signalingState === 'stable' || peerConnection.signalingState === 'have-remote-offer') {
@@ -173,6 +176,7 @@ ws.on('connection', (socket) => {
                         });
                 }
                 break;
+            */
 
             case 'TEKSTMELDING_TIL_TALEGRUPPE':
                 ws.clients.forEach(client => {

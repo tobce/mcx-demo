@@ -10,15 +10,30 @@ const ws = new WebSocket.Server({ server });
 
 app.use(bodyParser.json());
 
+class Brukar {
+    constructor(id, brukarnamn, grupper) {
+        this.id = id;
+        this.brukarnamn = brukarnamn;
+        this.grupper = grupper;
+    }
+}
+
+class Gruppe {
+    constructor(id, gruppenamn) {
+        this.id = id;
+        this.gruppenamn = gruppenamn;
+    }
+}
+
 // Dummy-database for brukarar og grupper
 let brukarar = [
-    { id: 75, brukarnamn: 'brukar1', grupper: [10, 12] },
-    { id: 14, brukarnamn: 'brukar2', grupper: [12] }
+    new Brukar(75, 'brukar1', [10, 12]),
+    new Brukar(14, 'brukar2', [12])
 ];
 
 let grupper = [
-    { id: 10, gruppenamn: 'Talegruppe 1'},
-    { id: 12, gruppenamn: 'Talegruppe 2'}
+    new Gruppe(10, 'Talegruppe 1'),
+    new Gruppe(12, 'Talegruppe 2')
 ];
 
 // Innlogging (utan passord for no)
@@ -32,7 +47,7 @@ app.post('/innlogging', (req, res) => {
     if (brukar) {
         const brukarGrupper = grupper.filter(gr => brukar.grupper.includes(gr.id));
         console.log('Autentisert brukar:', brukarnamn);
-        return res.status(200).json({ brukarnamn, grupper: brukarGrupper });
+        return res.status(200).json({ id: brukar.id, brukarnamn: brukar.brukarnamn, grupper: brukarGrupper });
     }
     return res.status(401).json({ melding: 'Uautorisert' });
 });
@@ -52,6 +67,7 @@ ws.on('connection', (socket) => {
                     gruppeId: data.gruppeId,
                     tekstmelding: data.tekstmelding,
                     grupper,
+                    id: data.id
                 }));
             }
         });

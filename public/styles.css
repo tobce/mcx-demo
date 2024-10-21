@@ -51,10 +51,10 @@ input[type="radio"] {
     margin-right: 10px;
 }
 
-#status, #gruppenamn, #sendarBrukarnamn, #tekstmelding {
-    margin-top: 10px;
+#status div {
+    margin-bottom: 10px;
     padding: 10px;
-    background-color: #e9ecef;
+    background-color: #f8f9fa;
     border-radius: 4px;
 }
 
@@ -97,4 +97,10 @@ input[type="radio"] {
 
 #tekstmeldingKnapp:active {
     background-color: #0c5460;
+}
+
+.error-message {
+    color: rgba(255, 0, 0, 0.814);
+    font-size: 16px; /* Optional: Adjust as needed */
+    margin-top: 8px; /* Optional: Adjust as needed */
 }

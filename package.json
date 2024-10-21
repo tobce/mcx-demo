@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@roamhq/wrtc": "^0.8.0",
     "body-parser": "^1.20.3",
     "csurf": "^1.11.0",
     "express": "^4.21.1",

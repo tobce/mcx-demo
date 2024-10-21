@@ -17,7 +17,7 @@ app.use(bodyParser.json());
 // Konstantar
 const PORT = 3000;
 const RATE_MINUTT = 15; //rate limit i minutt
-const RATE_FØRESPURNADER = 100; //maks førespurnader per IP per tid minutt
+const RATE_FØRESPURNADER = 100; //maks førespurnader per IP per tid
 
 // Dummy-database for brukarar og talegrupper
 
@@ -51,16 +51,15 @@ for (let brukar of brukarar) {
 // Innlogging (utan passord for no)
 app.post('/innlogging', (req, res) => {
     const { fødselsnummer } = req.body;
-
-    if (!validator.isNumeric(fødselsnummer)) {
-        return res.status(400).json({ melding: 'Ugyldig fødselsnummer' });
-    }    
+    if (!validator.isNumeric(fødselsnummer) || fødselsnummer.length !== 11) {
+        return res.status(400).json({ melding: 'Fødselsnummer må vere 11 siffer' });
+    }
     const brukar = brukarar.find(u => u.fødselsnummer === fødselsnummer);
     if (brukar) {
         console.log('Autentisert brukar:', brukar.hentNamn());
         return res.status(200).json({ brukar });
     }
-    return res.status(401).json({ melding: 'Ikkje autorisert' });
+    return res.status(401).json({ melding: 'Fann ikkje brukaren' });
 });
 
 ws.on('connection', (socket) => {
@@ -79,12 +78,10 @@ ws.on('connection', (socket) => {
                             type: data.type,
                             avsendarBrukar: data.avsendarBrukar,
                             avsendarTalegruppe: data.avsendarTalegruppe,
-                            offer: data.offer
                         }));
                     }
                 });
                 break;
-
             case 'TEKSTMELDING_TIL_TALEGRUPPE':
                 // Kringkast tekstmeldinger til alle brukarar i same talegruppe
                 ws.clients.forEach(client => {

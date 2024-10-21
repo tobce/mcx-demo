@@ -13,7 +13,7 @@
         <label for="fødselsnummer">Fødselsnummer:</label>
         <input type="text" id="fødselsnummer" required>
         <button type="submit">Logg inn</button>
-        <p id="feilmeldingP" class="error-message"></p>
+        <p id="feilmeldingP" class="feilmelding"></p>
     </form>
 
     <div id="ptxKontrollar" style="display: none;">
@@ -66,13 +66,9 @@
         let talegrupper = [];
         let socket;
         let senderBool = false;
-        let localStream;
-        let peerConnection;
-        const configuration = {
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        };
 
         skjema.addEventListener('submit', (e) => {
+            document.querySelector('button[type="submit"]').disabled = true;
             e.preventDefault();
             fødselsnummer = document.getElementById('fødselsnummer').value;
             feilmelding.textContent = ''; // Fjern feilmelding
@@ -107,6 +103,7 @@
                     genererTalegruppeRadioKnappar(talegrupper);
                 } else {
                     feilmelding.textContent = data.melding;
+                    document.querySelector('button[type="submit"]').disabled = false;
                 }
             });
         });
@@ -140,6 +137,9 @@
                         break;
                     case 'PTT_END':
                         handterPTTSlutt(data);
+                        break;
+                    case 'TEKSTMELDING_TIL_TALEGRUPPE':
+                        handterTekstmelding(data);
                         break;
                     default:
                         console.log('Ukjent meldingstype mottatt:', data.type);
@@ -181,7 +181,6 @@
                 type: 'PTT_START',
                 avsendarBrukar: brukar,
                 avsendarTalegruppe: talegruppe,
-                offer: offer
             }));
         }
 

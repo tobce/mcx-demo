@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
+const validator = require('validator');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -22,7 +24,6 @@ let grupper = [
 
 // Innlogging (utan passord for no)
 
-const validator = require('validator');
 
 app.post('/innlogging', (req, res) => {
     const { brukarnamn } = req.body;
@@ -62,13 +63,6 @@ ws.on('connection', (socket) => {
 // Serve frontend-filer
 app.use(express.static('public'));
 
-// Start server
-const port = 3000;
-
-server.listen(port, () => {
-    console.log(`Serveren køyrer på http://localhost:${port}`);
-});
-
 const rateLimit = require('express-rate-limit');
 
 // Rate limit middleware
@@ -78,3 +72,11 @@ const avgrensing = rateLimit({
 });
 
 app.use(avgrensing);
+
+
+// Start server
+const port = 3000;
+
+server.listen(port, () => {
+    console.log(`Serveren køyrer på http://localhost:${port}`);
+});

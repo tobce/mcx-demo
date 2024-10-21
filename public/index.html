@@ -35,6 +35,9 @@
             Nei</label>
             <label for="kanskje"><input type="radio" id="kanskje" name="ptt-melding" value="Kanskje">
             Kanskje</label>
+            <label for="tekstfeltRadio"><input type="radio" id="tekstfeltRadio" name="ptt-melding" value="">
+            Eigen tekst:</label>
+            <input type="text" id="tekstfelt" name="ptt-melding" oninput="document.getElementById('tekstfeltRadio').value = this.value; document.getElementById('tekstfeltRadio').checked = true;">
         </div>
 
         <h3>PTT</h3>

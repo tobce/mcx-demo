@@ -1,33 +1,61 @@
 <!DOCTYPE html>
-<html lang="nn"></html>
+<html lang="nn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PTX</title>
+    <title>PTX-demo</title>
 </head>
 <body>
-    <h1>PTX innlogging</h1>
-    <form id="loginForm">
-        <label for="username">Brukarnamn:</label>
-        <input type="text" id="username" required>
+    <h1>PTX-demo</h1>
+    <form id="innloggingSkjema">
+        <h2>Innlogging</h2>
+        <label for="brukarnamn">Brukarnamn:</label>
+        <input type="text" id="brukarnamn" required>
         <button type="submit">Logg inn</button>
     </form>
 
-    <div id="pttControls" style="display: none;">
+    <div id="pttKontrollar" style="display: none;">
         <h2>Velkomen!</h2>
-        <button id="pttButton">Trykk for å snakke</button>
+        <p>Du er no innlogga som <span id="brukarnamnSpan"></span>.</p>
+
+        <h3>Gruppe</h3>
+        <input type="radio" id="gruppe1" name="gruppe" value="0" checked>
+        <label for="gruppe1">Gruppe 1</label>
+        <input type="radio" id="gruppe2" name="gruppe" value="1">
+        <label for="gruppe2">Gruppe 2</label>
+
+        <h3>PTT</h3>
+        <button id="pttKnapp">Trykk for å snakke</button>
+        <br>
+        Melding: 
+        <input type="radio" id="ja" name="ptt-melding" value="Ja" checked>
+        <label for="ja">Ja</label>
+        <input type="radio" id="nei" name="ptt-melding" value="Nei">
+        <label for="nei">Nei</label>
+        <input type="radio" id="kanskje" name="ptt-melding" value="Kanskje">
+        <label for="kanskje">Kanskje</label>
+
+        <h3>Status</h3>
+        <div id="status">Status: Ledig</div>
+        <div id="gruppenamn">Gruppe: Ingen</div>
+        <div id="sendarBrukarnamn">Brukarnamn: Ingen</div>
+        <div id="pttMelding">Melding: Ingen</div>
     </div>
 
     <script>
-        const skjema = document.getElementById('loginForm');
-        const pttKontrollar = document.getElementById('pttControls');
-        const pttKnapp = document.getElementById('pttButton');
+        const skjema = document.getElementById('innloggingSkjema');
+        const pttKontrollar = document.getElementById('pttKontrollar');
+        const pttKnapp = document.getElementById('pttKnapp');
+        const statusDiv = document.getElementById('status');
+        const gruppenamnDiv = document.getElementById('gruppenamn');
+        const pttMeldingDiv = document.getElementById('pttMelding');
+        const sendarBrukarnamnDiv = document.getElementById('sendarBrukarnamn');
         let brukarnamn = '';
-        let sokkel;
+        let socket;
 
         skjema.addEventListener('submit', (e) => {
             e.preventDefault();
-            brukarnamn = document.getElementById('username').value;
+            brukarnamn = document.getElementById('brukarnamn').value;
             
             // Send POST-forespørsel for innlogging
             fetch('/innlogging', {
@@ -35,30 +63,63 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ brukarnamn })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.melding === 'Logga inn') {
-                    skjema.style.display = 'none';
-                    pttKontrollar.style.display = 'block';
-                    opprettWebSocket();
-                } else {
-                    alert('Innlogging feila');
-                }
+            .then(response => {
+            if (response.ok) {
+                skjema.style.display = 'none';
+                pttKontrollar.style.display = 'block';
+                document.getElementById('brukarnamnSpan').textContent = brukarnamn;
+                opprettWebSocket();
+            } else {
+                alert('Innlogging feila');
+            }
             });
         });
 
         function opprettWebSocket() {
             const sokkel = new WebSocket('ws://localhost:3000');
+
+            // Motta
             sokkel.onmessage = (melding) => {
-                console.log('Melding frå server:', melding.data);
+                const data = JSON.parse(melding.data);
+
+                grupper = data.grupper;
+                const gruppeId = data.gruppeId;
+                const gruppe = grupper.find(gr => gr.id == gruppeId);
+                const gruppenamn = gruppe ? gruppe.gruppenamn : 'Ingen';
+                
+                if (data.type === 'PTT_START' && gruppeId == document.querySelector('input[name="gruppe"]:checked').value) {
+                    statusDiv.textContent = 'Status: I bruk';
+                    pttMeldingDiv.textContent = 'Melding: ' + data.pttMelding;
+                    sendarBrukarnamnDiv.textContent = 'Brukarnamn: ' + data.brukarnamn;
+                    gruppenamnDiv.textContent = 'Gruppe: ' + gruppenamn;
+                } else if (data.type === 'PTT_END') {
+                    statusDiv.textContent = 'Status: Ledig';
+                    pttMeldingDiv.textContent = 'Melding: Ingen';
+                    sendarBrukarnamnDiv.textContent = 'Brukarnamn: Ingen';
+                    gruppenamnDiv.textContent = 'Gruppe: Ingen';
+                }
             };
 
+            // Sende
             pttKnapp.addEventListener('mousedown', () => {
-                sokkel.send(JSON.stringify({ type: 'PTT_START', brukarnamn, gruppeId: 'gruppe1' }));
+                const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
+                const pttMelding = document.querySelector('input[name="ptt-melding"]:checked').value;
+                console.log(pttMelding);
+                sokkel.send(JSON.stringify({ 
+                    type: 'PTT_START', 
+                    brukarnamn, 
+                    gruppeId, 
+                    pttMelding 
+                }));
             });
 
             pttKnapp.addEventListener('mouseup', () => {
-                sokkel.send(JSON.stringify({ type: 'PTT_END', brukarnamn, gruppeId: 'gruppe1' }));
+                const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
+                sokkel.send(JSON.stringify({ 
+                    type: 'PTT_END', 
+                    brukarnamn, 
+                    gruppeId
+                }));
             });
         }
     </script>

@@ -10,8 +10,15 @@ const ws = new WebSocket.Server({ server });
 app.use(bodyParser.json());
 
 // Dummy-database for brukarar og grupper
-let brukarar = [{ brukarnamn: 'brukar1' }, { brukarnamn: 'brukar2' }];
-let grupper = [{ gruppeId: 'gruppe1', brukarar: [] }];
+let brukarar = [
+    { id: 0, brukarnamn: 'brukar1', grupper: [1, 2] },
+    { id: 1, brukarnamn: 'brukar2', grupper: [1] }
+];
+
+let grupper = [
+    { id: 0, gruppenamn: 'gruppe1'},
+    { id: 1, gruppenamn: 'gruppe2'}
+];
 
 // Innlogging (utan passord for no)
 
@@ -26,7 +33,7 @@ app.post('/innlogging', (req, res) => {
     const brukar = brukarar.find(u => u.brukarnamn === brukarnamn);
     if (brukar) {
         console.log('Autentisert brukar:', brukarnamn);
-        return res.status(200).json({ melding: 'Logga inn', brukarnamn });
+        return res.status(200).json({ melding: 'Logga inn', brukarnamn, grupper: brukar.grupper });
     }
     return res.status(401).json({ melding: 'Uautorisert' });
 });
@@ -37,22 +44,18 @@ ws.on('connection', (socket) => {
     socket.on('message', (melding) => {
         const data = JSON.parse(melding);
 
-        if (data.type === 'PTT_START') {
-            // Kringkast til alle brukarar i same gruppe
-            ws.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(`${data.brukarnamn} snakkar i ${data.gruppeId}`);
-                }
-            });
-        }
-
-        if (data.type === 'PTT_END') {
-            ws.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(`${data.brukarnamn} slutta å snakke i ${data.gruppeId}`);
-                }
-            });
-        }
+        // Kringkast til alle brukarar i same gruppe
+        ws.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify({
+                    brukarnamn: data.brukarnamn,
+                    type: data.type, // PPT_IN eller PPT_OUT
+                    gruppeId: data.gruppeId,
+                    melding: data.pptMelding,
+                    grupper,
+                }));
+            }
+        });
     });
 });
 

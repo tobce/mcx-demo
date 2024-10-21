@@ -1,64 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nn"></html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PTT Login</title>
+    <title>PTX</title>
 </head>
 <body>
-    <h1>PTT Login</h1>
+    <h1>PTX innlogging</h1>
     <form id="loginForm">
         <label for="username">Brukarnamn:</label>
         <input type="text" id="username" required>
-        <button type="submit">Login</button>
+        <button type="submit">Logg inn</button>
     </form>
 
     <div id="pttControls" style="display: none;">
-        <h2>Velkommen!</h2>
+        <h2>Velkomen!</h2>
         <button id="pttButton">Trykk for å snakke</button>
     </div>
 
     <script>
-        const form = document.getElementById('loginForm');
-        const pttControls = document.getElementById('pttControls');
-        const pttButton = document.getElementById('pttButton');
-        let username = '';
-        let socket;
+        const skjema = document.getElementById('loginForm');
+        const pttKontrollar = document.getElementById('pttControls');
+        const pttKnapp = document.getElementById('pttButton');
+        let brukarnamn = '';
+        let sokkel;
 
-        form.addEventListener('submit', (e) => {
+        skjema.addEventListener('submit', (e) => {
             e.preventDefault();
-            username = document.getElementById('username').value;
+            brukarnamn = document.getElementById('username').value;
             
             // Send POST-forespørsel for innlogging
-            fetch('/login', {
+            fetch('/innlogging', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username })
+                body: JSON.stringify({ brukarnamn })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.message === 'Logged in') {
-                    form.style.display = 'none';
-                    pttControls.style.display = 'block';
-                    setupWebSocket();
+                if (data.melding === 'Logga inn') {
+                    skjema.style.display = 'none';
+                    pttKontrollar.style.display = 'block';
+                    opprettWebSocket();
                 } else {
                     alert('Innlogging feila');
                 }
             });
         });
 
-        function setupWebSocket() {
-            socket = new WebSocket('ws://localhost:3000');
-            socket.onmessage = (message) => {
-                console.log('Melding frå server:', message.data);
+        function opprettWebSocket() {
+            const sokkel = new WebSocket('ws://localhost:3000');
+            sokkel.onmessage = (melding) => {
+                console.log('Melding frå server:', melding.data);
             };
 
-            pttButton.addEventListener('mousedown', () => {
-                socket.send(JSON.stringify({ type: 'PTT_START', username, groupId: 'group1' }));
+            pttKnapp.addEventListener('mousedown', () => {
+                sokkel.send(JSON.stringify({ type: 'PTT_START', brukarnamn, gruppeId: 'gruppe1' }));
             });
 
-            pttButton.addEventListener('mouseup', () => {
-                socket.send(JSON.stringify({ type: 'PTT_END', username, groupId: 'group1' }));
+            pttKnapp.addEventListener('mouseup', () => {
+                sokkel.send(JSON.stringify({ type: 'PTT_END', brukarnamn, gruppeId: 'gruppe1' }));
             });
         }
     </script>

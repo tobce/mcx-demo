@@ -5,44 +5,51 @@ const bodyParser = require('body-parser');
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const ws = new WebSocket.Server({ server });
 
 app.use(bodyParser.json());
 
 // Dummy-database for brukarar og grupper
-let users = [{ username: 'brukar1' }, { username: 'brukar2' }];
-let groups = [{ groupId: 'group1', users: [] }];
+let brukarar = [{ brukarnamn: 'brukar1' }, { brukarnamn: 'brukar2' }];
+let grupper = [{ gruppeId: 'gruppe1', brukarar: [] }];
 
 // Innlogging (utan passord for no)
-app.post('/login', (req, res) => {
-    const { username } = req.body;
-    const user = users.find(u => u.username === username);
-    if (user) {
-        return res.status(200).json({ message: 'Logged in', username });
+
+const validator = require('validator');
+
+app.post('/innlogging', (req, res) => {
+    const { brukarnamn } = req.body;
+
+    if (!validator.isAlphanumeric(brukarnamn)) {
+        return res.status(400).send('Ugyldig brukarnamn');
+    }    
+    const brukar = brukarar.find(u => u.brukarnamn === brukarnamn);
+    if (brukar) {
+        console.log('Autentisert brukar:', brukarnamn);
+        return res.status(200).json({ melding: 'Logga inn', brukarnamn });
     }
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ melding: 'Uautorisert' });
 });
 
-// Tilkopling og PTT-logikk
-wss.on('connection', (ws) => {
-    console.log('User connected to WebSocket');
-
-    ws.on('message', (message) => {
-        const data = JSON.parse(message);
+ws.on('connection', (socket) => {
+    console.log('Ny tilkopling etablert');
+    
+    socket.on('message', (melding) => {
+        const data = JSON.parse(melding);
 
         if (data.type === 'PTT_START') {
-            // Broadcast til alle brukarar i same gruppe
-            wss.clients.forEach(client => {
+            // Kringkast til alle brukarar i same gruppe
+            ws.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(`${data.username} is talking in ${data.groupId}`);
+                    client.send(`${data.brukarnamn} snakkar i ${data.gruppeId}`);
                 }
             });
         }
 
         if (data.type === 'PTT_END') {
-            wss.clients.forEach(client => {
+            ws.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(`${data.username} stopped talking in ${data.groupId}`);
+                    client.send(`${data.brukarnamn} slutta å snakke i ${data.gruppeId}`);
                 }
             });
         }
@@ -53,6 +60,18 @@ wss.on('connection', (ws) => {
 app.use(express.static('public'));
 
 // Start server
-server.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000');
+const port = 3000;
+
+server.listen(port, () => {
+    console.log(`Serveren køyrer på http://localhost:${port}`);
 });
+
+const rateLimit = require('express-rate-limit');
+
+// Rate limit middleware
+const avgrensing = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutt
+    max: 100 // Maks 100 førespurnader per IP per 15 minutt
+});
+
+app.use(avgrensing);

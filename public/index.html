@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
     <title>PTX-demo</title>
 </head>
 <body>
@@ -18,22 +19,26 @@
         <h2>Velkomen!</h2>
         <p>Du er no innlogga som <span id="brukarnamnSpan"></span>.</p>
 
-        <h3>Gruppe</h3>
-        <input type="radio" id="gruppe1" name="gruppe" value="0" checked>
-        <label for="gruppe1">Gruppe 1</label>
-        <input type="radio" id="gruppe2" name="gruppe" value="1">
-        <label for="gruppe2">Gruppe 2</label>
+        <h3>Talegruppe</h3>
+        <div>
+            <label for="gruppe1"><input type="radio" id="gruppe1" name="gruppe" value="0" checked>
+            Gruppe 1</label>
+            <label for="gruppe2"><input type="radio" id="gruppe2" name="gruppe" value="1">
+            Gruppe 2</label>
+        </div>
+        
+        <h3>Melding</h3>
+        <div>
+            <label for="ja"><input type="radio" id="ja" name="ptt-melding" value="Ja" checked>
+            Ja</label>
+            <label for="nei"><input type="radio" id="nei" name="ptt-melding" value="Nei">
+            Nei</label>
+            <label for="kanskje"><input type="radio" id="kanskje" name="ptt-melding" value="Kanskje">
+            Kanskje</label>
+        </div>
 
         <h3>PTT</h3>
         <button id="pttKnapp">Trykk for å snakke</button>
-        <br>
-        Melding: 
-        <input type="radio" id="ja" name="ptt-melding" value="Ja" checked>
-        <label for="ja">Ja</label>
-        <input type="radio" id="nei" name="ptt-melding" value="Nei">
-        <label for="nei">Nei</label>
-        <input type="radio" id="kanskje" name="ptt-melding" value="Kanskje">
-        <label for="kanskje">Kanskje</label>
 
         <h3>Status</h3>
         <div id="status">Status: Ledig</div>
@@ -52,6 +57,7 @@
         const sendarBrukarnamnDiv = document.getElementById('sendarBrukarnamn');
         let brukarnamn = '';
         let socket;
+        let senderBool = false;
 
         skjema.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -78,9 +84,30 @@
         function opprettWebSocket() {
             const sokkel = new WebSocket('ws://localhost:3000');
 
+            function deaktiverRadioKnappar() {
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
+            radioButtons.forEach(button => button.disabled = true);
+        }
+
+        function aktiverRadioKnappar() {
+            const radioButtons = document.querySelectorAll('input[type="radio"]');
+            radioButtons.forEach(button => button.disabled = false);
+        }
+
+        function deaktiverPttKnapp() {
+            const pttKnapp = document.getElementById('pttKnapp');
+            pttKnapp.disabled = true;
+        }
+
+        function aktiverPttKnapp() {
+            const pttKnapp = document.getElementById('pttKnapp');
+            pttKnapp.disabled = false;
+        }
+        
             // Motta
             sokkel.onmessage = (melding) => {
                 const data = JSON.parse(melding.data);
+                console.log(data);
 
                 grupper = data.grupper;
                 const gruppeId = data.gruppeId;
@@ -88,11 +115,25 @@
                 const gruppenamn = gruppe ? gruppe.gruppenamn : 'Ingen';
                 
                 if (data.type === 'PTT_START' && gruppeId == document.querySelector('input[name="gruppe"]:checked').value) {
-                    statusDiv.textContent = 'Status: I bruk';
+                    deaktiverRadioKnappar();
+                    if (!senderBool) {
+                        deaktiverPttKnapp();
+                    }
+                    if (senderBool) {
+                        statusDiv.textContent = 'Status: Du sender';
+                    }
+                    else {
+                        statusDiv.textContent = 'Status: Opptatt';
+                    }
+                    
                     pttMeldingDiv.textContent = 'Melding: ' + data.pttMelding;
                     sendarBrukarnamnDiv.textContent = 'Brukarnamn: ' + data.brukarnamn;
                     gruppenamnDiv.textContent = 'Gruppe: ' + gruppenamn;
                 } else if (data.type === 'PTT_END') {
+                    aktiverRadioKnappar();
+                    if (!senderBool) {
+                        aktiverPttKnapp();
+                    }
                     statusDiv.textContent = 'Status: Ledig';
                     pttMeldingDiv.textContent = 'Melding: Ingen';
                     sendarBrukarnamnDiv.textContent = 'Brukarnamn: Ingen';
@@ -102,9 +143,10 @@
 
             // Sende
             pttKnapp.addEventListener('mousedown', () => {
+                senderBool = true;
+                deaktiverRadioKnappar();
                 const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
                 const pttMelding = document.querySelector('input[name="ptt-melding"]:checked').value;
-                console.log(pttMelding);
                 sokkel.send(JSON.stringify({ 
                     type: 'PTT_START', 
                     brukarnamn, 
@@ -114,6 +156,8 @@
             });
 
             pttKnapp.addEventListener('mouseup', () => {
+                senderBool = false;
+                aktiverRadioKnappar();
                 const gruppeId = document.querySelector('input[name="gruppe"]:checked').value;
                 sokkel.send(JSON.stringify({ 
                     type: 'PTT_END', 

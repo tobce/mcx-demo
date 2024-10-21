@@ -51,7 +51,7 @@ ws.on('connection', (socket) => {
                     brukarnamn: data.brukarnamn,
                     type: data.type, // PPT_IN eller PPT_OUT
                     gruppeId: data.gruppeId,
-                    melding: data.pptMelding,
+                    pttMelding: data.pttMelding,
                     grupper,
                 }));
             }

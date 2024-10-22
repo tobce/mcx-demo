@@ -86,11 +86,6 @@ input[type="radio"] {
     background-color: #ce0303;
 }
 
-#pttKnapp:disabled {
-    background-color: #6c757d;
-    cursor: not-allowed;
-}
-
 #tekstmeldingKnapp {
     background-color: #17a2b8;
     color: #fff;
@@ -107,6 +102,12 @@ input[type="radio"] {
 
 #tekstmeldingKnapp:active {
     background-color: #0c5460;
+}
+
+#pttKnapp:disabled,
+#tekstmeldingKnapp:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
 }
 
 .feilmelding {

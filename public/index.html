@@ -110,6 +110,13 @@
 
         function genererTalegruppeRadioKnappar(talegrupper) {
             talegruppeContainer.innerHTML = '';
+            if (talegrupper.length === 0) {
+               talegruppeContainer.textContent = 'Du har ikkje tilgang til nokon talegrupper.';
+               deaktiverRadioKnappar();
+               pttKnapp.disabled = true;
+               tekstmeldingKnapp.disabled = true;
+               return;
+            }
             talegrupper.forEach((talegruppe, index) => {
                 const label = document.createElement('label');
                 label.setAttribute('for', talegruppe.id);
@@ -309,7 +316,8 @@
             const avsendarTalegruppe = data.avsendarTalegruppe;
             const avsendarBrukar = data.avsendarBrukar;
 
-            if (avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
+            const valdTalegruppe = document.querySelector('input[name="talegruppe"]:checked');
+            if (valdTalegruppe && data.avsendarTalegruppe.id == valdTalegruppe.value) {
                 deaktiverRadioKnappar();
                 if (!senderBool) {
                     pttKnapp.disabled = true;
@@ -333,11 +341,12 @@
         }
 
         function handterTekstmelding(data) {
-            if (data.avsendarTalegruppe.id == document.querySelector('input[name="talegruppe"]:checked').value) {
-                const melding = brukar.fødselsnummer == data.avsendarBrukar.fødselsnummer 
-                    ? `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`
-                    : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
-                alert(melding);
+            const valdTalegruppe = document.querySelector('input[name="talegruppe"]:checked');
+            if (valdTalegruppe && data.avsendarTalegruppe.id == valdTalegruppe.value) {
+            const melding = brukar.fødselsnummer == data.avsendarBrukar.fødselsnummer 
+                ? `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`
+                : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+            alert(melding);
             }
         }
 

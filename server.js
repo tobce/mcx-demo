@@ -54,7 +54,9 @@ app.post('/innlogging', (req, res) => {
             try {
                 const nyBrukar = new Brukar(fødselsnummer, []);
                 brukarar.push(nyBrukar);
-                return res.status(200).json({ nyBrukar });
+                console.log('Ny brukar:', nyBrukar.hentNamn());
+                return res.status(400).json({ 
+                    melding: `Ny brukar oppretta for ${nyBrukar.hentNamn()}, gjer vel og logg inn på nytt.` });
             } catch (error) {
                 return res.status(400).json({ melding: error.message });
             }
@@ -65,8 +67,8 @@ app.post('/innlogging', (req, res) => {
 
 ws.on('connection', (socket) => {
     console.log('Ny tilkopling etablert');
-    let peerConnection;
-    let pendingCandidates = [];
+    //let peerConnection;
+    //let pendingCandidates = [];
 
     socket.on('message', async (melding) => {
         const data = JSON.parse(melding);

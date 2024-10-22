@@ -215,5 +215,5 @@ app.use(avgrensing);
 
 // Start serveren
 server.listen(PORT, () => {
-    console.log(`Serveren køyrer på http://localhost:${PORT}`);
+    console.log(`Serveren køyrer på port ${PORT}`);
 });

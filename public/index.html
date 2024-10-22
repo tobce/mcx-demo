@@ -131,7 +131,8 @@
         let isPeerConnectionReady = false;
 
         function opprettWebSocket() {
-            socket = new WebSocket('ws://localhost:3000');
+            const socketUrl = `wss://${window.location.host.replace(/^https?:\/\//, '')}`;
+            socket = new WebSocket(socketUrl);
 
             socket.onmessage = async (event) => {
                 const data = JSON.parse(event.data);

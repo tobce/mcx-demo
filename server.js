@@ -3,7 +3,6 @@ const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 const validator = require('validator');
-// const wrtc = require('@roamhq/wrtc');
 
 // Eigne klasser
 const Brukar = require('./models/Brukar');
@@ -35,7 +34,9 @@ let brukarar = [
     new Brukar('00000000001', [finnTalegruppe(10101)]),
 ];
 
-// Innlogging (utan passord for no)
+let socketTilkoplingar = new Map();
+let counter = 0;
+
 app.post('/innlogging', (req, res) => {
     const { fødselsnummer } = req.body;
     if (!validator.isNumeric(fødselsnummer)) {
@@ -67,152 +68,53 @@ app.post('/innlogging', (req, res) => {
 
 ws.on('connection', (socket) => {
     console.log('Ny tilkopling etablert');
-    //let peerConnection;
-    //let pendingCandidates = [];
 
     socket.on('message', async (melding) => {
         const data = JSON.parse(melding);
-
+        console.log('Melding mottatt:', data);
         switch (data.type) {
+            case 'CONNECTION_START':
+                    socketTilkoplingar.set(socket, {
+                    brukar: data.avsendarBrukar,
+                    talegruppe: null,
+                    socketId: counter,
+                });
+                counter++;
+                console.log(socketTilkoplingar);
+                console.log('Det er no', socketTilkoplingar.size, 'kopla til:');
+                socketTilkoplingar.forEach((tilkopling) => {
+                    console.log(
+                        `Namn: ${tilkopling.brukar.namn}, Talegruppe: ${tilkopling.talegruppe ? tilkopling.talegruppe.namn : 'Ingen'}, SocketID: ${tilkopling.socketId}`);
+                });
+                break;
             case 'PTT_START':
-                // Initialize WebRTC connection
-                /*
-                peerConnection = new wrtc.RTCPeerConnection();
-                peerConnection.onicecandidate = ({ candidate }) => {
-                    if (candidate) {
-                        socket.send(JSON.stringify({ type: 'candidate', candidate }));
-                    }
-                };
-
-                const audioTransceiver = peerConnection.addTransceiver('audio');
-                await audioTransceiver.sender.replaceTrack(audioTransceiver.receiver.track);
-
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                socket.send(JSON.stringify({ type: 'offer', offer }));
-                */
-
-                ws.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: data.type,
-                            avsendarBrukar: data.avsendarBrukar,
-                            avsendarTalegruppe: data.avsendarTalegruppe,
-                        }));
-                    }
-                });
-                break;
-
             case 'PTT_END':
-                // Close WebRTC connection
-                /*
-                if (peerConnection) {
-                    peerConnection.close();
-                    peerConnection = null;
-                }
-                    */
-
-                // Kringkast PPT_end til alle
-                ws.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: data.type,
-                            avsendarBrukar: data.avsendarBrukar,
-                            avsendarTalegruppe: data.avsendarTalegruppe,
-                        }));
-                    }
-                });
-                break;
-            /*
-            case 'offer':
-                if (peerConnection) {
-                    if (peerConnection.signalingState === 'stable' || peerConnection.signalingState === 'have-remote-offer') {
-                        await peerConnection.setRemoteDescription(new wrtc.RTCSessionDescription({
-                            type: data.offer.type,
-                            sdp: data.offer.sdp
-                        }))
-                        .then(() => {
-                            console.log('Remote description set with offer');
-                            // Add any pending ICE candidates
-                            pendingCandidates.forEach(candidate => {
-                                peerConnection.addIceCandidate(candidate)
-                                    .then(() => {
-                                        console.log('Added ICE candidate from pending list');
-                                    })
-                                    .catch(error => {
-                                        if (error.message.includes('RTCPeerConnection is closed')) {
-                                            console.warn('Ignoring error: ', error.message);
-                                        } else {
-                                            console.error('Error adding ICE candidate from pending list:', error);
-                                        }
-                                    });
-                            });
-                            pendingCandidates = [];
-                        })
-                        .catch(error => {
-                            console.error('Error setting remote description with offer:', error);
-                        });
-                    } else {
-                        console.error('Cannot set remote description in the current signaling state:', peerConnection.signalingState);
-                    }
-                }
-                break;
-
-            case 'candidate':
-                if (peerConnection) {
-                    const candidate = new wrtc.RTCIceCandidate(data.candidate);
-                    if (peerConnection.remoteDescription) {
-                        peerConnection.addIceCandidate(candidate)
-                            .then(() => {
-                                console.log('Added ICE candidate');
-                            })
-                            .catch(error => {
-                                if (error.message.includes('RTCPeerConnection is closed')) {
-                                    console.warn('Ignoring error: ', error.message);
-                                } else {
-                                    console.error('Error adding ICE candidate:', error);
-                                }
-                            });
-                    } else {
-                        console.log('Remote description not set yet, storing ICE candidate');
-                        pendingCandidates.push(candidate);
-                    }
-                }
-                break;
-
-            case 'answer':
-                if (peerConnection) {
-                    peerConnection.setRemoteDescription(new wrtc.RTCSessionDescription(data.answer))
-                        .then(() => {
-                            console.log('Remote description set with answer');
-                        })
-                        .catch(error => {
-                            console.error('Error setting remote description with answer:', error);
-                        });
-                }
-                break;
-            */
-
             case 'TEKSTMELDING_TIL_TALEGRUPPE':
-                ws.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify({
-                            type: data.type,
-                            avsendarBrukar: data.avsendarBrukar,
-                            tekstmelding: data.tekstmelding,
-                            talegrupper: data.talegrupper,
-                            avsendarTalegruppe: data.avsendarTalegruppe,
-                            id: data.id
-                        }));
+                console.log('TEKSTMELDING_TIL_TALEGRUPPE');
+                for (let [socket, socketTilkopling] of socketTilkoplingar.entries()) {
+                    console.log('Sender melding ...:', data);
+                    console.log(socketTilkopling.talegruppe);
+                    if (socketTilkopling.talegruppe && 
+                        socketTilkopling.talegruppe.id === data.avsendarTalegruppe.id && 
+                        socket.readyState === WebSocket.OPEN) {
+                            console.log('Melding sendt til talegruppe:', data);
+                            socket.send(JSON.stringify(data));
                     }
-                });
+                }
                 break;
-
+            case 'VEL_TALEGRUPPE':
+                //if (socketTilkoplingar.get(socket)) {
+                    socketTilkoplingar.get(socket).talegruppe = data.talegruppe;
+                //}
+                break;
             default:
                 console.log('Ukjent meldingstype mottatt:', data.type);
                 break;
         }
+    });
+
+    socket.on('close', () => {
+        delete socketTilkoplingar[socket];
     });
 });
 

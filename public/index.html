@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="nn">
+<html lang="""nn">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="""UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <title>PTX-demo</title>
@@ -51,7 +51,6 @@
     </div>
 
     <script>
-
         const skjema = document.getElementById('innloggingSkjema');
         const ptxKontrollar = document.getElementById('ptxKontrollar');
         const tekstmeldingKnapp = document.getElementById('tekstmeldingKnapp');
@@ -125,53 +124,38 @@
                 input.id = talegruppe.id;
                 input.name = 'talegruppe';
                 input.value = talegruppe.id;
-                if (index === 0) input.checked = true;
+                input.addEventListener('change', () => {
+                    pttKnapp.disabled = false;
+                    tekstmeldingKnapp.disabled = false;
+                    socket.send(JSON.stringify({
+                        type: 'VEL_TALEGRUPPE',
+                        avsendarBrukar: brukar,
+                        talegruppe: talegruppe
+                    }));
+                });
                 label.appendChild(input);
                 label.appendChild(document.createTextNode(` ${talegruppe.namn}`));
                 talegruppeContainer.appendChild(label);
+                pttKnapp.disabled = true;
+                tekstmeldingKnapp.disabled = true;
             });
         }
-
-        
-        let peerConnection;
-        let iceCandidateQueue = [];
-        let isPeerConnectionReady = false;
 
         function opprettWebSocket() {
             const socketUrl = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.host}`;
             socket = new WebSocket(socketUrl);
 
+            socket.onopen = () => {
+                socket.send(JSON.stringify({
+                    type: 'CONNECTION_START',
+                    avsendarBrukar: brukar
+                }));
+            };
+
             socket.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
 
                 switch (data.type) {
-                    /*case 'answer':
-                        try {
-                            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                            isPeerConnectionReady = true;
-                            processIceCandidateQueue();
-                        } catch (error) {
-                            console.error('Klarte ikkje å setje fjernbeskriving:', error);
-                        }
-                        break;
-
-                    case 'candidate':
-                        if (isPeerConnectionReady && peerConnection) {
-                            try {
-                                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                            } catch (error) {
-                                console.error('Klarte ikkje å leggje til ICE-kandidat:', error);
-                            }
-                        } else {
-                            iceCandidateQueue.push(data.candidate);
-                        }
-                        break;
-                    
-                    case 'offer':
-                        await handleOffer(data);
-                        break;
-                    */
-
                     case 'PTT_START':
                         handterPTTStart(data);
                         break;
@@ -191,46 +175,6 @@
             };
         }
 
-        /*
-        async function handleOffer(data) {
-            if (!peerConnection) {
-                peerConnection = new RTCPeerConnection();
-                peerConnection.onicecandidate = ({ candidate }) => {
-                    if (candidate) {
-                        socket.send(JSON.stringify({ type: 'candidate', candidate }));
-                    }
-                };
-            }
-            try {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                socket.send(JSON.stringify({ type: 'answer', answer }));
-                isPeerConnectionReady = true;
-                processIceCandidateQueue();
-            } catch (error) {
-                console.error('Klarte ikkje å handtere tilbod:', error);
-            }
-        }
-
-        function processIceCandidateQueue() {
-            while (iceCandidateQueue.length > 0) {
-                const candidate = iceCandidateQueue.shift();
-                if (peerConnection) {
-                    try {
-                        if (peerConnection.signalingState !== 'closed') {
-                            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                        } else {
-                            console.warn('RTCPeerConnection er stengd. Hopp over ICE-kandidat.');
-                        }
-                    } catch (error) {
-                        console.error('Klarte ikkje å leggje til ICE-kandidat:', error);
-                    }
-                }
-            }
-        }
-        */
-
         function deaktiverRadioKnappar() {
             const radioButtons = document.querySelectorAll('input[type="radio"]');
             radioButtons.forEach(button => button.disabled = true);
@@ -240,8 +184,6 @@
             const radioButtons = document.querySelectorAll('input[type="radio"]');
             radioButtons.forEach(button => button.disabled = false);
         }
-
-        //let localStream;
 
         async function sendTekstmelding() {
             const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
@@ -266,27 +208,6 @@
                 avsendarBrukar: brukar,
                 avsendarTalegruppe: talegruppe,
             }));
-
-            /*try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                peerConnection = new RTCPeerConnection();
-                peerConnection.onicecandidate = ({ candidate }) => {
-                    if (candidate) {
-                        socket.send(JSON.stringify({ type: 'candidate', candidate }));
-                    }
-                };
-
-                const audioTrack = localStream.getAudioTracks()[0];
-                const sender = peerConnection.addTrack(audioTrack, localStream);
-
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                socket.send(JSON.stringify({ type: 'offer', offer }));
-                isPeerConnectionReady = true;
-            } catch (error) {
-                console.error('Klarte ikkje å starte PTT:', error);
-            }*/
         }
 
         async function stoppPTT() {
@@ -300,16 +221,6 @@
                 avsendarBrukar: brukar,
                 avsendarTalegruppe: talegruppe
             }));
-
-            /*if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-            }
-
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-                isPeerConnectionReady = false;
-            }*/
         }
 
         function handterPTTStart(data) {
@@ -343,10 +254,10 @@
         function handterTekstmelding(data) {
             const valdTalegruppe = document.querySelector('input[name="talegruppe"]:checked');
             if (valdTalegruppe && data.avsendarTalegruppe.id == valdTalegruppe.value) {
-            const melding = brukar.fødselsnummer == data.avsendarBrukar.fødselsnummer 
-                ? `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`
-                : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
-            alert(melding);
+                const melding = brukar.fødselsnummer == data.avsendarBrukar.fødselsnummer 
+                    ? `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`
+                    : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+                alert(melding);
             }
         }
 

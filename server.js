@@ -31,22 +31,36 @@ function finnTalegruppe(id) {
 }
 
 let brukarar = [
-    new Brukar('00000000000', [finnTalegruppe(10101), finnTalegruppe(10102)]),
+    new Brukar('20070000000', [finnTalegruppe(10101), finnTalegruppe(10102)]),
     new Brukar('00000000001', [finnTalegruppe(10101)]),
 ];
 
 // Innlogging (utan passord for no)
 app.post('/innlogging', (req, res) => {
     const { fødselsnummer } = req.body;
-    if (!validator.isNumeric(fødselsnummer) || fødselsnummer.length !== 11) {
-        return res.status(400).json({ melding: 'Fødselsnummer må vere 11 siffer' });
+    if (!validator.isNumeric(fødselsnummer)) {
+        return res.status(400).json({ melding: 'Fødselsnummer inneheld berre tal' });
     }
-    const brukar = brukarar.find(u => u.fødselsnummer === fødselsnummer);
-    if (brukar) {
-        console.log('Autentisert brukar:', brukar.hentNamn());
-        return res.status(200).json({ brukar });
+    if (!(fødselsnummer.length == 11)) {
+        return res.status(400).json({ melding: 'Fødselsnummer må vera 11 siffer' });
     }
-    return res.status(401).json({ melding: 'Fann ikkje brukaren' });
+    else {
+        const brukar = brukarar.find(u => u.fødselsnummer === fødselsnummer);
+        if (brukar) {
+            console.log('Autentisert brukar:', brukar.hentNamn());
+            return res.status(200).json({ brukar });
+        }
+        else {
+            try {
+                const nyBrukar = new Brukar(fødselsnummer, []);
+                brukarar.push(nyBrukar);
+                return res.status(200).json({ nyBrukar });
+            } catch (error) {
+                return res.status(400).json({ melding: error.message });
+            }
+        }
+}
+    return res.status(401).json({ melding: 'Fann ikkje brukaren' }); // unåeleg
 });
 
 ws.on('connection', (socket) => {

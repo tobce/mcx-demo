@@ -3,6 +3,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const bodyParser = require('body-parser');
 const validator = require('validator');
+const wrtc = require('@roamhq/wrtc');
 
 // Eigne klasser
 const Brukar = require('./models/Brukar');
@@ -20,17 +21,10 @@ const RATE_MINUTT = 15; //rate limit i minutt
 const RATE_FØRESPURNADER = 100; //maks førespurnader per IP per tid
 
 // Dummy-database for brukarar og talegrupper
-
 let talegrupper = [
     new Talegruppe(10101, '01-SAR-A1'),
     new Talegruppe(10102, '01-SAR-A2'),
 ];
-/*
-console.log('Følgjande talegrupper vart laga:');
-for (let talegruppe of talegrupper) {
-    console.log(talegruppe.toString());
-}
-    */
 
 function finnTalegruppe(id) {
     return talegrupper.find(talegruppe => talegruppe.id === id);
@@ -40,13 +34,6 @@ let brukarar = [
     new Brukar('00000000000', [finnTalegruppe(10101), finnTalegruppe(10102)]),
     new Brukar('00000000001', [finnTalegruppe(10101)]),
 ];
-
-/*
-console.log('Følgjande brukarar vart laga:');
-for (let brukar of brukarar) {
-    console.log(brukar.toString());
-}
-    */
 
 // Innlogging (utan passord for no)
 app.post('/innlogging', (req, res) => {
@@ -64,14 +51,31 @@ app.post('/innlogging', (req, res) => {
 
 ws.on('connection', (socket) => {
     console.log('Ny tilkopling etablert');
-    
-    socket.on('message', (melding) => {
+    let peerConnection;
+    let pendingCandidates = [];
+
+    socket.on('message', async (melding) => {
         const data = JSON.parse(melding);
 
         switch (data.type) {
             case 'PTT_START':
-            case 'PTT_END':
-                // Kringkast PTT-meldinger til alle brukarar i same talegruppe
+                // Initialize WebRTC connection
+                peerConnection = new wrtc.RTCPeerConnection();
+                peerConnection.onicecandidate = ({ candidate }) => {
+                    if (candidate) {
+                        socket.send(JSON.stringify({ type: 'candidate', candidate }));
+                    }
+                };
+
+                const audioTransceiver = peerConnection.addTransceiver('audio');
+                await audioTransceiver.sender.replaceTrack(audioTransceiver.receiver.track);
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                socket.send(JSON.stringify({ type: 'offer', offer }));
+
+                // Broadcast PTT_START to all clients in the same group
                 ws.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({
@@ -82,8 +86,95 @@ ws.on('connection', (socket) => {
                     }
                 });
                 break;
+
+            case 'PTT_END':
+                // Close WebRTC connection
+                if (peerConnection) {
+                    peerConnection.close();
+                    peerConnection = null;
+                }
+
+                // Broadcast PTT_END to all clients in the same group
+                ws.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({
+                            type: data.type,
+                            avsendarBrukar: data.avsendarBrukar,
+                            avsendarTalegruppe: data.avsendarTalegruppe,
+                        }));
+                    }
+                });
+                break;
+
+            case 'offer':
+                if (peerConnection) {
+                    if (peerConnection.signalingState === 'stable' || peerConnection.signalingState === 'have-remote-offer') {
+                        await peerConnection.setRemoteDescription(new wrtc.RTCSessionDescription({
+                            type: data.offer.type,
+                            sdp: data.offer.sdp
+                        }))
+                        .then(() => {
+                            console.log('Remote description set with offer');
+                            // Add any pending ICE candidates
+                            pendingCandidates.forEach(candidate => {
+                                peerConnection.addIceCandidate(candidate)
+                                    .then(() => {
+                                        console.log('Added ICE candidate from pending list');
+                                    })
+                                    .catch(error => {
+                                        if (error.message.includes('RTCPeerConnection is closed')) {
+                                            console.warn('Ignoring error: ', error.message);
+                                        } else {
+                                            console.error('Error adding ICE candidate from pending list:', error);
+                                        }
+                                    });
+                            });
+                            pendingCandidates = [];
+                        })
+                        .catch(error => {
+                            console.error('Error setting remote description with offer:', error);
+                        });
+                    } else {
+                        console.error('Cannot set remote description in the current signaling state:', peerConnection.signalingState);
+                    }
+                }
+                break;
+
+            case 'candidate':
+                if (peerConnection) {
+                    const candidate = new wrtc.RTCIceCandidate(data.candidate);
+                    if (peerConnection.remoteDescription) {
+                        peerConnection.addIceCandidate(candidate)
+                            .then(() => {
+                                console.log('Added ICE candidate');
+                            })
+                            .catch(error => {
+                                if (error.message.includes('RTCPeerConnection is closed')) {
+                                    console.warn('Ignoring error: ', error.message);
+                                } else {
+                                    console.error('Error adding ICE candidate:', error);
+                                }
+                            });
+                    } else {
+                        console.log('Remote description not set yet, storing ICE candidate');
+                        pendingCandidates.push(candidate);
+                    }
+                }
+                break;
+
+            case 'answer':
+                if (peerConnection) {
+                    peerConnection.setRemoteDescription(new wrtc.RTCSessionDescription(data.answer))
+                        .then(() => {
+                            console.log('Remote description set with answer');
+                        })
+                        .catch(error => {
+                            console.error('Error setting remote description with answer:', error);
+                        });
+                }
+                break;
+
             case 'TEKSTMELDING_TIL_TALEGRUPPE':
-                // Kringkast tekstmeldinger til alle brukarar i same talegruppe
                 ws.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify({
@@ -97,6 +188,7 @@ ws.on('connection', (socket) => {
                     }
                 });
                 break;
+
             default:
                 console.log('Ukjent meldingstype mottatt:', data.type);
                 break;
@@ -118,7 +210,6 @@ const avgrensing = rateLimit({
 app.use(avgrensing);
 
 // Start serveren
-
 server.listen(PORT, () => {
     console.log(`Serveren køyrer på http://localhost:${PORT}`);
 });

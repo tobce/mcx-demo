@@ -125,29 +125,100 @@
             });
         }
 
+        
+        let peerConnection;
+        let iceCandidateQueue = [];
+        let isPeerConnectionReady = false;
+
         function opprettWebSocket() {
             socket = new WebSocket('ws://localhost:3000');
 
-            socket.onmessage = (event) => {
+            socket.onmessage = async (event) => {
                 const data = JSON.parse(event.data);
 
                 switch (data.type) {
+                    case 'answer':
+                        try {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                            isPeerConnectionReady = true;
+                            processIceCandidateQueue();
+                        } catch (error) {
+                            console.error('Klarte ikkje å setje fjernbeskriving:', error);
+                        }
+                        break;
+
+                    case 'candidate':
+                        if (isPeerConnectionReady && peerConnection) {
+                            try {
+                                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                            } catch (error) {
+                                console.error('Klarte ikkje å leggje til ICE-kandidat:', error);
+                            }
+                        } else {
+                            iceCandidateQueue.push(data.candidate);
+                        }
+                        break;
+
                     case 'PTT_START':
                         handterPTTStart(data);
                         break;
+
                     case 'PTT_END':
                         handterPTTSlutt(data);
                         break;
+
                     case 'TEKSTMELDING_TIL_TALEGRUPPE':
                         handterTekstmelding(data);
                         break;
+
+                    case 'offer':
+                        await handleOffer(data);
+                        break;
+
                     default:
-                        console.log('Ukjent meldingstype mottatt:', data.type);
+                        console.log('Ukjent meldingstype:', data.type);
                         break;
                 }
             };
         }
 
+        async function handleOffer(data) {
+            if (!peerConnection) {
+                peerConnection = new RTCPeerConnection();
+                peerConnection.onicecandidate = ({ candidate }) => {
+                    if (candidate) {
+                        socket.send(JSON.stringify({ type: 'candidate', candidate }));
+                    }
+                };
+            }
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.send(JSON.stringify({ type: 'answer', answer }));
+                isPeerConnectionReady = true;
+                processIceCandidateQueue();
+            } catch (error) {
+                console.error('Klarte ikkje å handtere tilbod:', error);
+            }
+        }
+
+        function processIceCandidateQueue() {
+            while (iceCandidateQueue.length > 0) {
+                const candidate = iceCandidateQueue.shift();
+                if (peerConnection) {
+                    try {
+                        if (peerConnection.signalingState !== 'closed') {
+                            peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                        } else {
+                            console.warn('RTCPeerConnection er stengd. Hopp over ICE-kandidat.');
+                        }
+                    } catch (error) {
+                        console.error('Klarte ikkje å leggje til ICE-kandidat:', error);
+                    }
+                }
+            }
+        }
 
         function deaktiverRadioKnappar() {
             const radioButtons = document.querySelectorAll('input[type="radio"]');
@@ -158,6 +229,8 @@
             const radioButtons = document.querySelectorAll('input[type="radio"]');
             radioButtons.forEach(button => button.disabled = false);
         }
+
+        let localStream;
 
         async function sendTekstmelding() {
             const talegruppeId = document.querySelector('input[name="talegruppe"]:checked').value;
@@ -182,6 +255,27 @@
                 avsendarBrukar: brukar,
                 avsendarTalegruppe: talegruppe,
             }));
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                peerConnection = new RTCPeerConnection();
+                peerConnection.onicecandidate = ({ candidate }) => {
+                    if (candidate) {
+                        socket.send(JSON.stringify({ type: 'candidate', candidate }));
+                    }
+                };
+
+                const audioTrack = localStream.getAudioTracks()[0];
+                const sender = peerConnection.addTrack(audioTrack, localStream);
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                socket.send(JSON.stringify({ type: 'offer', offer }));
+                isPeerConnectionReady = true;
+            } catch (error) {
+                console.error('Klarte ikkje å starte PTT:', error);
+            }
         }
 
         async function stoppPTT() {
@@ -195,6 +289,16 @@
                 avsendarBrukar: brukar,
                 avsendarTalegruppe: talegruppe
             }));
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+                isPeerConnectionReady = false;
+            }
         }
 
         function handterPTTStart(data) {
@@ -240,6 +344,7 @@
 
         pttKnapp.addEventListener('mouseup', stoppPTT);
         pttKnapp.addEventListener('touchend', stoppPTT);
+
     </script>
 </body>
 </html>

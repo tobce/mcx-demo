@@ -131,7 +131,7 @@
         let isPeerConnectionReady = false;
 
         function opprettWebSocket() {
-            const socketUrl = `wss://${window.location.host.replace(/^https?:\/\//, '')}`;
+            const socketUrl = window.location.protocol === 'https:' ? `wss://${window.location.host}` : `ws://${window.location.host}`;
             socket = new WebSocket(socketUrl);
 
             socket.onmessage = async (event) => {

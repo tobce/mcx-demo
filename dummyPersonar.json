@@ -1,0 +1,51 @@
+[
+    {
+        "fødselsnummer": "01010112345",
+        "fødselsdato": "2001-01-01",
+        "etternamn": "Hansen",
+        "fornamn": "Ola",
+        "mobilnummer": "92345678"
+    },
+    {
+        "fødselsnummer": "02020223456",
+        "fødselsdato": "2002-02-02",
+        "etternamn": "Johansen",
+        "fornamn": "Kari",
+        "mobilnummer": "93456789"
+    },
+    {
+        "fødselsnummer": "03030334567",
+        "fødselsdato": "2003-03-03",
+        "etternamn": "Larsen",
+        "fornamn": "Nils",
+        "mobilnummer": "94567890"
+    },
+    {
+        "fødselsnummer": "04040445678",
+        "fødselsdato": "2004-04-04",
+        "etternamn": "Nilsen",
+        "fornamn": "Anne",
+        "mobilnummer": "95678901"
+    },
+    {
+        "fødselsnummer": "00000000000",
+        "fødselsdato": "2002-05-05",
+        "etternamn": "Berg",
+        "fornamn": "August",
+        "mobilnummer": "96789012"
+    },
+    {
+        "fødselsnummer": "20070000000",
+        "fødselsdato": "2000-07-20",
+        "etternamn": "Eikeland",
+        "fornamn": "Tobias Christensen",
+        "mobilnummer": "94894969"
+    },
+    {
+        "fødselsnummer": "00000000001",
+        "fødselsdato": "2001-05-05",
+        "etternamn": "Sylte",
+        "fornamn": "Sofia Larsen",
+        "mobilnummer": "96789012"
+    }
+]

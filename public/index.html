@@ -18,7 +18,7 @@
 
     <div id="ptxKontrollar" style="display: none;">
         <h2>Velkomen!</h2>
-        <p>Du er no innlogga som <span id="namnSpan"></span> (fnr.: <span id="fnrSpan"></span>).</p>
+        <p>Du er no innlogga som <span id="namnSpan"></span> (fnr.: <span id="fnrSpan"></span>). Brukartype: <span id="tilgangSpan"></span></p>
 
         <h3>Talegruppe</h3>
         <div id="talegruppeContainer"></div>
@@ -97,6 +97,7 @@
                     ptxKontrollar.style.display = 'block';
                     document.getElementById('namnSpan').textContent = brukar.namn;
                     document.getElementById('fnrSpan').textContent = brukar.fødselsnummer;
+                    document.getElementById('tilgangSpan').textContent = brukar.tilgangsnivå;
                     ptxKontrollar.style.display = 'block';
                     opprettWebSocket();
                     genererTalegruppeRadioKnappar(talegrupper);
@@ -164,9 +165,11 @@
                         handterPTTSlutt(data);
                         break;
 
+                    case 'TEKSTMELDING_TIL_ALLE':
                     case 'TEKSTMELDING_TIL_TALEGRUPPE':
                         handterTekstmelding(data);
                         break;
+                    
 
                     default:
                         console.log('Ukjent meldingstype:', data.type);
@@ -253,14 +256,23 @@
 
         function handterTekstmelding(data) {
             const valdTalegruppe = document.querySelector('input[name="talegruppe"]:checked');
+            let melding;
             if (valdTalegruppe && data.avsendarTalegruppe.id == valdTalegruppe.value) {
-                const melding = brukar.fødselsnummer == data.avsendarBrukar.fødselsnummer 
-                    ? `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`
-                    : `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+                    if (brukar.fødselsnummer === data.avsendarBrukar.fødselsnummer) {
+                        melding = `Du sende følgjande tekstmelding i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+                    } else {
+                        melding = `Ny melding mottatt frå ${data.avsendarBrukar.namn} i talegruppe ${data.avsendarTalegruppe.namn}:\n${data.tekstmelding}`;
+                    }
                 alert(melding);
             }
+            else if (data.type === 'TEKSTMELDING_TIL_ALLE') {
+                if (data.avsendarBrukar) {
+                } else {
+                    melding = `Ny felles melding mottatt:\n${data.tekstmelding}`;
+                alert(melding);
+                }
+            }
         }
-
         tekstmeldingKnapp.addEventListener('click', sendTekstmelding);
 
         pttKnapp.addEventListener('mousedown', startPTT);

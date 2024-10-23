@@ -1,3 +1,8 @@
+const Tilgangsnivå = {
+    GJEST: 'gjest',
+    BRUKAR: 'brukar',
+    ADMINISTRATOR: 'administrator'
+};
 
 /**
  * Representerer ein brukar.
@@ -9,7 +14,7 @@
  * @throws Error - Kastar ein feil dersom personen ikkje finst i Folkeregisteret.
  */
 class Brukar {
-    constructor(fødselsnummer, talegrupper, folkeregister) {
+    constructor(fødselsnummer, talegrupper, folkeregister, tilgangsnivå) {
         this.person = folkeregister.finnPerson(fødselsnummer);
         if (!this.person) {
             throw new Error('Fann ikkje personen i Folkeregisteret');
@@ -18,6 +23,8 @@ class Brukar {
         this.talegrupper = talegrupper
         this.fødselsnummer = this.person.hentFødselsnummer();
         this.namn = this.person.hentNamn();
+        this.tilgangsnivå;
+        this.setTilgangsnivå(tilgangsnivå);
     }
 
     hentFødselsnummer() {
@@ -27,6 +34,18 @@ class Brukar {
     hentNamn() {
         return this.namn;
     }
+
+    hentTilgangsnivå() {
+        return this.tilgangsnivå;
+    }
+
+    setTilgangsnivå(nyttTilgangsnivå) {
+        if (Object.values(Tilgangsnivå).includes(nyttTilgangsnivå)) {
+            this.tilgangsnivå = nyttTilgangsnivå;
+        } else {
+            throw new Error('Ugyldig tilgangsnivå');
+        }
+    }
 }
 
-module.exports = Brukar;
+module.exports = { Brukar, Tilgangsnivå };

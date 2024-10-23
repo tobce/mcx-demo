@@ -1,0 +1,12 @@
+[
+    {
+        "fødselsnummer": "20070000000",
+        "talegrupper": [10101, 10102],
+        "tilgangsnivå": "administrator"
+    },
+    {
+        "fødselsnummer": "00000000001",
+        "talegrupper": [10101],
+        "tilgangsnivå": "brukar"
+    }
+]

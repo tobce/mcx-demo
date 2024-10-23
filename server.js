@@ -51,7 +51,7 @@ function meldingarLogg(meldingsdata) {
 }
 
 // Klasser
-const Brukar = require('./models/Brukar');
+const { Brukar, Tilgangsnivå } = require('./models/Brukar');
 const Talegruppe = require('./models/Talegruppe');
 const Folkeregister = require('./models/Folkeregister');
 const Person = require('./models/Person');
@@ -102,10 +102,26 @@ const folkeregister = genererFolkeregister();
 // fødselsnummer, liste over talegrupper, folkeregister
 // Lista tek inn talegrupper som objekt, så finn talegruppa frå ID
 
-let brukarar = [
-    new Brukar('20070000000', [finnTalegruppe(10101), finnTalegruppe(10102)], folkeregister),
-    new Brukar('00000000001', [finnTalegruppe(10101)], folkeregister),
-];
+let brukarar = [];
+function genererBrukarar() {
+    const data = fs.readFileSync(path.join(__dirname, 'brukarar.json'), 'utf8');
+    const brukarData = JSON.parse(data);
+
+    brukarData.forEach(brukar => {
+        const talegrupper = brukar.talegrupper.map(id => finnTalegruppe(id));
+        const nyBrukar = new Brukar(
+            brukar.fødselsnummer,
+            talegrupper,
+            folkeregister,
+            brukar.tilgangsnivå
+        );
+        brukarar.push(nyBrukar);
+        
+    })
+    console.log('Brukarar:', brukarar);
+}
+
+genererBrukarar();
 
 // Lagar ein map for å halde styr på tilkoplingar
 // Brukar socket som nøkkel og ein objekt som inneheld brukar, talegruppe og socketId
@@ -141,7 +157,7 @@ app.post('/innlogging', (req, res) => {
             // Dersom brukaren ikkje finst, opprettar me ein ny brukar automatisk
             // Me får feilmelding dersom brukaren ikkje finst i folkeregisteret
             try {
-                const nyBrukar = new Brukar(fødselsnummer, [], folkeregister);
+                const nyBrukar = new Brukar(fødselsnummer, [], folkeregister, "gjest");
                 brukarar.push(nyBrukar);
                 loggar.info('Ny brukar:', nyBrukar.hentNamn());
                 return res.status(400).json({ 
@@ -199,6 +215,23 @@ ws.on('connection', (socket, req) => {
                 sendTilTalegruppe();
                 break;
 
+            case 'TEKSTMELDING_TIL_ALLE':
+                const meldingsdataTilAlle = {
+                    tidspunkt: new Date().toISOString(),
+                    avsendar: {
+                        namn: data.avsendarBrukar.namn,
+                        fødselsnummer: data.avsendarBrukar.fødselsnummer,
+                        ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
+                    },
+                    talegruppe: 'Alle',
+                    melding: data.tekstmelding
+                };
+                meldingarLogg(meldingsdataTilAlle);
+                loggar.info(`TEKSTMELDING til alle: frå ${data.avsendarBrukar.namn}:`);
+                loggar.info(`   ${data.tekstmelding}`);
+                sendTilTalegruppe();
+                break;
+
             case 'PTT_START':
             case 'PTT_END':
                 loggar.info(`${data.type}: ${data.avsendarTalegruppe.namn} - ${data.avsendarBrukar.namn}`)
@@ -220,6 +253,24 @@ ws.on('connection', (socket, req) => {
         delete socketTilkoplingar[socket];
     });
 });
+
+module.exports.skrivUtMeldingar = function () {
+    const data = fs.readFileSync('meldingar.json', 'utf8');
+    const meldingar = JSON.parse(data);
+    meldingar.forEach(melding => {
+        console.log(`[${melding.tidspunkt}] ${melding.avsendar.namn} i ${melding.talegruppe}: ${melding.melding}`);
+    });  };
+
+module.exports.sendTekstmeldingTilAlle = function (tekstmelding) {
+    for (let [socket, socketTilkopling] of socketTilkoplingar.entries()) {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: 'TEKSTMELDING_TIL_ALLE',
+                tekstmelding: tekstmelding,
+            }));
+        }
+    }
+}
 
 // Serve frontend-filer
 app.use(express.static('public'));

@@ -188,7 +188,7 @@ ws.on('connection', (socket, req) => {
                     avsendar: {
                         namn: data.avsendarBrukar.namn,
                         fødselsnummer: data.avsendarBrukar.fødselsnummer,
-                        ip: req.socket.remoteAddress
+                        ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress
                     },
                     talegruppe: data.avsendarTalegruppe.namn,
                     melding: data.tekstmelding

@@ -29,6 +29,9 @@ const loggar = winston.createLogger({
 function meldingarLogg(meldingsdata) {
     const jsonMeldingar = JSON.stringify(meldingsdata, null, 2);
     const filnamn = 'meldingar.json';
+    if (!fs.existsSync(filnamn)) {
+        fs.writeFileSync(filnamn, '[]');
+    }
     let fil = fs.readFileSync(filnamn, 'utf8');
     
     if (fil.endsWith(']')) {

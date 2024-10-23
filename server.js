@@ -25,6 +25,28 @@ const loggar = winston.createLogger({
     ]
 });
 
+// Logge tekstmeldingar frå brukarar til meldingar.json, fomatert som JSON.
+function meldingarLogg(meldingsdata) {
+    const jsonMeldingar = JSON.stringify(meldingsdata, null, 2);
+    const filnamn = 'meldingar.json';
+    let fil = fs.readFileSync(filnamn, 'utf8');
+    
+    if (fil.endsWith(']')) {
+        fil = fil.slice(0, -1);
+    }
+
+    fil = fil + ',\n' + jsonMeldingar;
+
+    if (fil.startsWith(',')) {
+        fil = fil.slice(1);
+    }
+    
+    if (!fil.startsWith('[')) {fil = '[' + fil;}
+    
+    if (!fil.endsWith(']')) {fil = fil + ']';}
+    fs.writeFileSync(filnamn, fil);
+}
+
 // Klasser
 const Brukar = require('./models/Brukar');
 const Talegruppe = require('./models/Talegruppe');
@@ -132,7 +154,7 @@ app.post('/innlogging', (req, res) => {
 });
 
 // Når ei tilkopling er etablert, lytt etter meldingar
-ws.on('connection', (socket) => {
+ws.on('connection', (socket, req) => {
 
     // Når me mottar ei melding, handter ho
     socket.on('message', async (melding) => {
@@ -158,10 +180,22 @@ ws.on('connection', (socket) => {
                 counter++;
                 break;
             case 'TEKSTMELDING_TIL_TALEGRUPPE':
+                const meldingsdata = {
+                    tidspunkt: new Date().toISOString(),
+                    avsendar: {
+                        namn: data.avsendarBrukar.namn,
+                        fødselsnummer: data.avsendarBrukar.fødselsnummer,
+                        ip: req.socket.remoteAddress
+                    },
+                    talegruppe: data.avsendarTalegruppe.namn,
+                    melding: data.tekstmelding
+                };
+                meldingarLogg(meldingsdata);
                 loggar.info(`TEKSTMELDING: i ${data.avsendarTalegruppe.namn} frå ${data.avsendarBrukar.namn}:`);
                 loggar.info(`   ${data.tekstmelding}`);
                 sendTilTalegruppe();
                 break;
+
             case 'PTT_START':
             case 'PTT_END':
                 loggar.info(`${data.type}: ${data.avsendarTalegruppe.namn} - ${data.avsendarBrukar.namn}`)

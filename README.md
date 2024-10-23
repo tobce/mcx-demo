@@ -27,7 +27,7 @@ For å køyre prosjektet lokalt, følg desse stega:
 
 3. Installer avhengigheiter:
 
-    ```npm install express ws```
+    ```npm install```
 
 4. Start serveren:
 

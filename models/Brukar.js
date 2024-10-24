@@ -20,7 +20,7 @@ class Brukar {
             throw new Error('Fann ikkje personen i Folkeregisteret');
         }
 
-        this.talegrupper = talegrupper
+        this.talegrupper = talegrupper;
         this.fødselsnummer = this.person.hentFødselsnummer();
         this.namn = this.person.hentNamn();
         this.tilgangsnivå;

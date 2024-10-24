@@ -2,6 +2,7 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
+const rateLimit = require('express-rate-limit');
 
 const bodyParser = require('body-parser');
 const validator = require('validator');
@@ -9,46 +10,8 @@ const validator = require('validator');
 const fs = require('fs');
 const path = require('path');
 
-// Loggar
-const winston = require('winston');
-const loggar = winston.createLogger({
-    level: 'silly',
-    format: winston.format.combine(
-        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
-        winston.format.printf(({ timestamp, level, message }) => {
-            return `${timestamp} [${level.toUpperCase()}]: ${message}`;
-        })
-    ),
-    transports: [
-        new winston.transports.Console({ level: 'silly', forceConsole: true }),
-        new winston.transports.File({ filename: 'server.log' })
-    ]
-});
-
-// Logge tekstmeldingar frå brukarar til meldingar.json, fomatert som JSON.
-function meldingarLogg(meldingsdata) {
-    const jsonMeldingar = JSON.stringify(meldingsdata, null, 2);
-    const filnamn = 'meldingar.json';
-    if (!fs.existsSync(filnamn)) {
-        fs.writeFileSync(filnamn, '');
-    }
-    let fil = fs.readFileSync(filnamn, 'utf8');
-    
-    if (fil.endsWith(']')) {
-        fil = fil.slice(0, -1);
-    }
-
-    fil = fil + ',\n' + jsonMeldingar;
-
-    if (fil.startsWith(',')) {
-        fil = fil.slice(1);
-    }
-    
-    if (!fil.startsWith('[')) {fil = '[' + fil;}
-    
-    if (!fil.endsWith(']')) {fil = fil + ']';}
-    fs.writeFileSync(filnamn, fil);
-}
+const loggar = require('./models/utils/loggar');
+const meldingarLogg = require('./models/utils/meldingarLogg');
 
 // Klasser
 const { Brukar, Tilgangsnivå } = require('./models/Brukar');
@@ -250,7 +213,7 @@ ws.on('connection', (socket, req) => {
     });
 
     socket.on('close', () => {
-        delete socketTilkoplingar[socket];
+        socketTilkoplingar.delete(socket);
     });
 });
 
@@ -274,8 +237,6 @@ module.exports.sendTekstmeldingTilAlle = function (tekstmelding) {
 
 // Serve frontend-filer
 app.use(express.static('public'));
-
-const rateLimit = require('express-rate-limit');
 
 // Avgrense førespurnader til serveren
 const avgrensing = rateLimit({
